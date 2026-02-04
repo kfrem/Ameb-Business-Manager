@@ -53,7 +53,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchBusinesses = async (userId: string) => {
     try {
-      const res = await fetch(`/api/users/${userId}/businesses`);
+      const res = await fetch(`/api/users/${userId}/businesses`, {
+        headers: { 'X-User-Id': userId }
+      });
       if (res.ok) {
         const businesses = await res.json();
         setState(prev => ({ ...prev, businesses }));
