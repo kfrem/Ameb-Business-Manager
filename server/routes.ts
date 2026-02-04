@@ -163,41 +163,42 @@ export async function registerRoutes(
     }
   });
 
-  // Dashboard route - Returns data based on user's role and business access
+  // Dashboard route - Returns data filtered by user's business access
   app.get("/api/dashboard", async (req, res) => {
     try {
-      // Owner and Admin see all data; others see filtered data
-      if (['owner', 'admin', 'auditor'].includes(req.user.role)) {
-        const data = await storage.getDashboardData();
-        res.json(data);
-      } else {
-        // Staff/Partner see only their assigned businesses
-        const userBusinesses = await storage.getUserBusinesses(req.user.id);
-        const data = await storage.getDashboardData();
-        // Filter to only show businesses user has access to
-        data.businesses = data.businesses.filter((b: any) => 
-          userBusinesses.some(ub => ub.id === b.id)
-        );
-        res.json(data);
+      // Get businesses user has explicit access to
+      const userBusinesses = await storage.getUserBusinesses(req.user.id);
+      const userBusinessIds = userBusinesses.map(b => b.id);
+      
+      // If user has no businesses, return empty dashboard
+      if (userBusinessIds.length === 0) {
+        return res.json({
+          businesses: [],
+          bankAccounts: [],
+          todayIn: 0,
+          todayOut: 0,
+          totalBalance: 0
+        });
       }
+      
+      const data = await storage.getDashboardData();
+      // Filter to only show businesses user has access to
+      data.businesses = data.businesses.filter((b: any) => 
+        userBusinessIds.includes(b.id)
+      );
+      res.json(data);
     } catch (error) {
       console.error("Dashboard error:", error);
       res.status(500).json({ error: "Failed to fetch dashboard data" });
     }
   });
 
-  // Businesses routes - Filter by user access
+  // Businesses routes - Filter by user's explicit business access
   app.get("/api/businesses", async (req, res) => {
     try {
-      // Owner/Admin/Auditor see all
-      if (['owner', 'admin', 'auditor'].includes(req.user.role)) {
-        const businesses = await storage.getAllBusinesses();
-        res.json(businesses);
-      } else {
-        // Staff/Partner see only their businesses
-        const businesses = await storage.getUserBusinesses(req.user.id);
-        res.json(businesses);
-      }
+      // All users only see businesses they have explicit access to
+      const businesses = await storage.getUserBusinesses(req.user.id);
+      res.json(businesses);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch businesses" });
     }

@@ -1,5 +1,5 @@
 import { db } from './db';
-import { eq, and, desc, gte, lte, sql } from 'drizzle-orm';
+import { eq, and, desc, gte, lte, sql, inArray } from 'drizzle-orm';
 import {
   users, businesses, bankAccounts, categories, ledgerTransactions,
   machineryAssets, machineryCostLines, leaseContracts, leasePayments,
@@ -146,14 +146,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserBusinesses(userId: string): Promise<Business[]> {
-    const user = await this.getUser(userId);
-    if (user?.role === 'owner' || user?.role === 'admin') {
-      return this.getAllBusinesses();
-    }
+    // Always filter by explicit userBusinessAccess entries
+    // This ensures new users start with a blank canvas
     const access = await db.select().from(userBusinessAccess).where(eq(userBusinessAccess.userId, userId));
     const businessIds = access.map(a => a.businessId);
     if (businessIds.length === 0) return [];
-    return db.select().from(businesses).where(sql`${businesses.id} = ANY(${businessIds})`);
+    return db.select().from(businesses).where(inArray(businesses.id, businessIds));
   }
 
   // Bank Accounts

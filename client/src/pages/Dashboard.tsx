@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, AlertTriangle, Clock, ChevronRight } from 'lucide-react';
+import { Loader2, AlertTriangle, Clock, ChevronRight, Briefcase, Plus } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { BusinessTile } from '@/components/dashboard/BusinessTile';
@@ -85,20 +85,37 @@ export default function Dashboard() {
             <h2 className="text-lg font-semibold">Businesses</h2>
             <Badge variant="outline">{businesses.length}</Badge>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {businesses.map((business: any) => (
-              <BusinessTile
-                key={business.id}
-                id={business.id}
-                name={business.name}
-                type={business.type}
-                cashIn={business.cashIn}
-                cashOut={business.cashOut}
-                profit={business.profit}
-                alertCount={business.alertCount}
-              />
-            ))}
-          </div>
+          {businesses.length === 0 ? (
+            <Card className="text-center py-12" data-testid="empty-state">
+              <CardContent className="space-y-4">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                  <Briefcase className="w-8 h-8 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Welcome to DEEBI!</h3>
+                  <p className="text-muted-foreground mt-1">
+                    You don't have any businesses yet.<br />
+                    Contact the administrator to get started.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {businesses.map((business: any) => (
+                <BusinessTile
+                  key={business.id}
+                  id={business.id}
+                  name={business.name}
+                  type={business.type}
+                  cashIn={business.cashIn}
+                  cashOut={business.cashOut}
+                  profit={business.profit}
+                  alertCount={business.alertCount}
+                />
+              ))}
+            </div>
+          )}
         </section>
 
         {unreadAlerts.length > 0 && (

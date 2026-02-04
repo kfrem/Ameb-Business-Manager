@@ -59,12 +59,22 @@ export async function seedDatabase() {
 
   // Create User Business Access
   console.log('Creating user access...');
+  const allBusinessIds = [machineryBiz.id, goldAgentBiz.id, goldOwnerBiz.id, sparePartsBiz.id, fuelBiz.id];
+  
+  // Owner and Admin get access to all businesses
+  const ownerAccess = allBusinessIds.map(businessId => ({ userId: createdUsers[0].id, businessId }));
+  const adminAccess = allBusinessIds.map(businessId => ({ userId: createdUsers[1].id, businessId }));
+  
   await db.insert(userBusinessAccess).values([
+    ...ownerAccess,
+    ...adminAccess,
     { userId: createdUsers[2].id, businessId: machineryBiz.id },
     { userId: createdUsers[3].id, businessId: goldAgentBiz.id },
     { userId: createdUsers[3].id, businessId: goldOwnerBiz.id },
     { userId: createdUsers[4].id, businessId: sparePartsBiz.id },
     { userId: createdUsers[5].id, businessId: fuelBiz.id },
+    // Auditor gets read access to all businesses
+    ...allBusinessIds.map(businessId => ({ userId: createdUsers[6].id, businessId })),
   ]);
 
   // Create Bank Accounts
