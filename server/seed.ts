@@ -20,12 +20,6 @@ function randomAmount(min: number, max: number): string {
 }
 
 export async function seedDatabase() {
-  // Only seed in development
-  if (process.env.NODE_ENV === 'production') {
-    console.log('Skipping seed in production environment');
-    return;
-  }
-  
   console.log('🌱 Starting database seed...');
 
   // Check if already seeded
