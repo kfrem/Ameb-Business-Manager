@@ -48,10 +48,10 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
-  // Apply auth middleware to all /api routes except login
+  // Apply auth middleware to all /api routes except login/register
   app.use("/api", async (req, res, next) => {
-    // Skip auth for login route
-    if (req.path === "/auth/login") {
+    // Skip auth for login and register routes
+    if (req.path === "/auth/login" || req.path === "/auth/register") {
       return next();
     }
     // For other routes, validate user header exists and load user
@@ -99,6 +99,44 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Login error:", error);
       res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  // Register route - create new user with blank canvas
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const { phone, pin, name } = req.body;
+      
+      // Validate input
+      if (!phone || typeof phone !== 'string' || phone.length < 10) {
+        return res.status(400).json({ error: "Valid phone number is required (10+ digits)" });
+      }
+      if (!pin || typeof pin !== 'string' || pin.length !== 4) {
+        return res.status(400).json({ error: "PIN must be 4 digits" });
+      }
+      if (!name || typeof name !== 'string' || name.length < 2) {
+        return res.status(400).json({ error: "Name is required (2+ characters)" });
+      }
+      
+      // Check if phone already exists
+      const existingUser = await storage.getUserByPhone(phone);
+      if (existingUser) {
+        return res.status(409).json({ error: "Phone number already registered" });
+      }
+      
+      // Create new user as owner (they own their own businesses)
+      const newUser = await storage.createUser({
+        name,
+        phone,
+        pin,
+        role: 'owner',
+        isActive: true
+      });
+      
+      res.status(201).json({ user: newUser, businesses: [] });
+    } catch (error) {
+      console.error("Registration error:", error);
+      res.status(500).json({ error: "Registration failed" });
     }
   });
 

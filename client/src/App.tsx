@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
 import Login from "@/pages/Login";
+import Register from "@/pages/Register";
 import Dashboard from "@/pages/Dashboard";
 import NewEntry from "@/pages/NewEntry";
 import BusinessDetail from "@/pages/BusinessDetail";
@@ -15,6 +16,16 @@ import Alerts from "@/pages/Alerts";
 import Banks from "@/pages/Banks";
 import Reports from "@/pages/Reports";
 import NotFound from "@/pages/not-found";
+
+function AuthRoutes() {
+  return (
+    <Switch>
+      <Route path="/login" component={Login} />
+      <Route path="/register" component={Register} />
+      <Route component={Login} />
+    </Switch>
+  );
+}
 
 function ProtectedRoutes() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -31,7 +42,7 @@ function ProtectedRoutes() {
   }
 
   if (!isAuthenticated) {
-    return <Login />;
+    return <AuthRoutes />;
   }
 
   return (

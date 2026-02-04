@@ -9,8 +9,14 @@ interface AuthState {
   isLoading: boolean;
 }
 
+interface RegisterResult {
+  success: boolean;
+  error?: string;
+}
+
 interface AuthContextType extends AuthState {
   login: (phone: string, pin?: string) => Promise<boolean>;
+  register: (name: string, phone: string, pin: string) => Promise<RegisterResult>;
   logout: () => void;
   setCurrentBusiness: (business: Business | null) => void;
 }
@@ -82,6 +88,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const register = async (name: string, phone: string, pin: string): Promise<RegisterResult> => {
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, phone, pin }),
+      });
+      const data = await res.json();
+      
+      if (res.ok) {
+        const { user, businesses } = data;
+        localStorage.setItem('deebi_user', JSON.stringify(user));
+        setState(prev => ({
+          ...prev,
+          user,
+          businesses,
+          isAuthenticated: true,
+        }));
+        return { success: true };
+      }
+      return { success: false, error: data.error || 'Registration failed' };
+    } catch (error) {
+      console.error('Registration error:', error);
+      return { success: false, error: 'Registration failed' };
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('deebi_user');
     localStorage.removeItem('deebi_business');
@@ -104,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ ...state, login, logout, setCurrentBusiness }}>
+    <AuthContext.Provider value={{ ...state, login, register, logout, setCurrentBusiness }}>
       {children}
     </AuthContext.Provider>
   );

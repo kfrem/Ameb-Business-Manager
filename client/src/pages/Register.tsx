@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, Link } from 'wouter';
-import { Phone, Lock, ChevronRight, UserPlus } from 'lucide-react';
+import { Phone, Lock, User, ChevronRight, ChevronLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,15 +8,24 @@ import { NumericKeypad } from '@/components/forms/NumericKeypad';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
-export default function Login() {
+export default function Register() {
   const [, setLocation] = useLocation();
-  const { login } = useAuth();
+  const { register } = useAuth();
   const { toast } = useToast();
   
-  const [step, setStep] = useState<'phone' | 'pin'>('phone');
+  const [step, setStep] = useState<'name' | 'phone' | 'pin'>('name');
+  const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [pin, setPin] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const handleNameSubmit = () => {
+    if (name.length < 2) {
+      toast({ title: 'Enter your name', variant: 'destructive' });
+      return;
+    }
+    setStep('phone');
+  };
 
   const handlePhoneSubmit = () => {
     if (phone.length < 10) {
@@ -26,16 +35,25 @@ export default function Login() {
     setStep('pin');
   };
 
-  const handleLogin = async () => {
+  const handleRegister = async () => {
+    if (pin.length !== 4) {
+      toast({ title: 'PIN must be 4 digits', variant: 'destructive' });
+      return;
+    }
+    
     setIsLoading(true);
-    const success = await login(phone, pin);
+    const result = await register(name, phone, pin);
     setIsLoading(false);
     
-    if (success) {
+    if (result.success) {
+      toast({ title: 'Account created successfully!' });
       setLocation('/');
     } else {
-      toast({ title: 'Invalid credentials', variant: 'destructive' });
-      setPin('');
+      toast({ title: result.error || 'Registration failed', variant: 'destructive' });
+      if (result.error?.includes('already registered')) {
+        setStep('phone');
+        setPhone('');
+      }
     }
   };
 
@@ -44,17 +62,56 @@ export default function Login() {
       <div className="flex-1 flex flex-col items-center justify-center p-6">
         <div className="text-center text-white mb-8">
           <h1 className="text-5xl font-bold tracking-tight">DEEBI</h1>
-          <p className="text-lg opacity-90 mt-2">Business Manager</p>
+          <p className="text-lg opacity-90 mt-2">Create Account</p>
         </div>
 
         <Card className="w-full max-w-sm">
           <CardHeader className="text-center pb-2">
             <CardTitle className="text-xl">
-              {step === 'phone' ? 'Enter Phone Number' : 'Enter PIN'}
+              {step === 'name' && 'Enter Your Name'}
+              {step === 'phone' && 'Enter Phone Number'}
+              {step === 'pin' && 'Create PIN'}
             </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Step {step === 'name' ? '1' : step === 'phone' ? '2' : '3'} of 3
+            </p>
           </CardHeader>
           <CardContent className="space-y-4">
-            {step === 'phone' ? (
+            {step === 'name' && (
+              <>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder="Your Name"
+                    className="pl-10 text-xl h-14"
+                    autoFocus
+                    data-testid="input-name"
+                  />
+                </div>
+
+                <Button 
+                  className="w-full h-14 text-lg"
+                  onClick={handleNameSubmit}
+                  disabled={name.length < 2}
+                  data-testid="button-continue-name"
+                >
+                  Continue
+                  <ChevronRight className="w-5 h-5 ml-2" />
+                </Button>
+
+                <Link href="/login">
+                  <Button variant="ghost" className="w-full text-sm" data-testid="link-login">
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Already have an account? Sign In
+                  </Button>
+                </Link>
+              </>
+            )}
+
+            {step === 'phone' && (
               <>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -76,17 +133,28 @@ export default function Login() {
                   maxLength={12}
                 />
 
-                <Button 
-                  className="w-full h-14 text-lg"
-                  onClick={handlePhoneSubmit}
-                  disabled={phone.length < 10}
-                  data-testid="button-continue"
-                >
-                  Continue
-                  <ChevronRight className="w-5 h-5 ml-2" />
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline"
+                    className="flex-1 h-14"
+                    onClick={() => setStep('name')}
+                  >
+                    Back
+                  </Button>
+                  <Button 
+                    className="flex-1 h-14 text-lg"
+                    onClick={handlePhoneSubmit}
+                    disabled={phone.length < 10}
+                    data-testid="button-continue-phone"
+                  >
+                    Continue
+                    <ChevronRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </div>
               </>
-            ) : (
+            )}
+
+            {step === 'pin' && (
               <>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -128,36 +196,15 @@ export default function Login() {
                   </Button>
                   <Button 
                     className="flex-1 h-14 text-lg"
-                    onClick={handleLogin}
-                    disabled={pin.length < 4 || isLoading}
-                    data-testid="button-login"
+                    onClick={handleRegister}
+                    disabled={pin.length !== 4 || isLoading}
+                    data-testid="button-register"
                   >
-                    {isLoading ? 'Signing in...' : 'Sign In'}
+                    {isLoading ? 'Creating...' : 'Create Account'}
                   </Button>
                 </div>
-
-                <Button 
-                  variant="ghost" 
-                  className="w-full text-sm"
-                  onClick={handleLogin}
-                >
-                  Skip PIN (Demo)
-                </Button>
               </>
             )}
-
-            <div className="border-t pt-4 mt-2">
-              <Link href="/register">
-                <Button 
-                  variant="outline" 
-                  className="w-full h-12"
-                  data-testid="link-register"
-                >
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Create New Account
-                </Button>
-              </Link>
-            </div>
           </CardContent>
         </Card>
       </div>
