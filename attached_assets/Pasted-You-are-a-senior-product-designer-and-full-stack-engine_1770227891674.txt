@@ -1,0 +1,277 @@
+You are a senior product designer and full-stack engineer. Build a working, mobile-first Progressive Web App (PWA) called DEEBI. It must work best on a phone, and also on tablet and laptop.
+
+Primary user (Owner): semi-literate/illiterate but streetwise; can enter numbers confidently (telephone-style keypad) and read very short labels. Secondary users: eACG Business Team (accountants/staff) who record transactions daily/weekly. The Owner mainly views dashboards and approvals.
+
+Deliver a working MVP in Replit with seeded demo data that immediately shows credible activity across Ghana (Accra, Kumasi, Tamale, Sekondi–Takoradi, Sunyani, Cape Coast, Koforidua, Tema, Obuasi, Techiman).
+
+    Product goals
+
+    Give Owner simple visibility across businesses: money in/out, costs, stock, profit snapshots, and alerts.
+
+    Make staff entry fast, consistent, and auditable.
+
+    Provide monthly reports (visual, exportable PDF + CSV).
+
+    Initial businesses (4 modules; scalable)
+    A. Heavy Machinery (China → Ghana; sell + lease)
+    Default cost categories (expandable): Purchase, Shipping, Clearing, Transport, Storage.
+    Revenue: Cash sales, Lease payments (schedule, due dates, arrears).
+    Owner KPIs: units by status (ordered/shipping/clearing/transport/storage/sold/on lease), cost breakdown, sales income, lease income, profit snapshot, receivables.
+
+B. Gold (two streams)
+Stream 1: Owner funds agents to source and sell.
+Stream 2: Owner sources gold himself and sells.
+Rules: each gold lot belongs to exactly one stream; track funding out, grams received, sale value, cash returned; stock status.
+KPIs: profitability snapshot per stream, agent performance (red/amber/green).
+
+C. Spare Parts (fast-moving goods)
+Stock in/out, sales, returns, low-stock alerts, profit snapshot.
+
+D. Fuel Station (partner-run; profit share)
+Periodic summaries; profit split; cash received vs expected; KPI: Owner share and variance.
+
+    Roles and RBAC
+    Roles: Owner (super admin), Admin/Finance Lead, Staff/Accountant, Partner (optional), Auditor/read-only.
+    Enforce RBAC server-side. All records must include created_by/at, last_edited_by/at, business_id, and immutable audit log.
+
+    PWA + offline-first (must)
+
+    Installable PWA (manifest + service worker).
+
+    Offline mode: app shell cached; allow creating entries offline; show status: Offline / Syncing / Synced.
+
+    Offline outbox: queue writes locally; sync on reconnect; idempotent requests; conflict strategy documented.
+
+    Attachments: allow receipt photo upload; if offline, queue and sync later.
+
+    Data model (relational; Postgres-ready)
+    Use PostgreSQL in production; for Replit MVP you may use SQLite, but structure code so switching DB is minimal (ORM recommended).
+
+Core entities:
+
+    users, roles, permissions, user_business_access
+
+    businesses (type: machinery, gold_agent, gold_owner, spare_parts, fuel; allow adding more)
+
+    bank_accounts (bank_name, account_ref, currency, opening_balance)
+
+    ledger_transactions (unified):
+    date, amount, currency, direction(in/out), business_id,
+    bank_account_id nullable, category, subcategory,
+    counterparty, reference, notes, attachment_urls,
+    status(draft/posted), reconciled(boolean)
+
+    categories (templates per business)
+
+    machinery_assets + machinery_cost_lines
+
+    lease_contracts + lease_payments
+
+    agents + gold_lots
+
+    inventory_items + inventory_movements
+
+    fuel_summaries
+
+    alerts
+
+    monthly_reports (store snapshot json)
+
+Currency defaults:
+
+    Default currency: GHS (Ghana Cedi, ISO code GHS). Allow USD and CNY.​
+
+    UI/UX rules (low literacy)
+    Owner dashboard-first:
+
+    Home: 5 big tiles (Machinery, Gold, Spare Parts, Fuel, All Money).
+
+    Minimal text (1–2 words) + icons; large fonts; high contrast.
+
+    Phone keypad numeric entry for amounts.
+
+    Simple charts: donut + bar; avoid dense tables on mobile.
+
+    Localisation-ready string files (English now; Twi placeholders).
+
+Staff entry-first:
+
+    “New Entry” in 1 tap.
+
+    Forms: max 6 fields on first screen; “More” for extras.
+
+    Expense must have category; every transaction must have business.
+
+    Dashboards + reports (must)
+
+    All Businesses overview: today/week/month cash in/out, bank balances, top expenses, receivables due, alerts.
+
+    Per business: 3–6 KPIs, charts, red/amber/green status.
+
+    Monthly report: one-page visual; export PDF; CSV export for finance.
+
+    Banking + reconciliation
+
+    Multiple banks + cash.
+
+    Transfers between banks.
+
+    Reconciliation: Admin marks reconciled.
+
+    Alerts: large cash outflow without attachment and/or missing category.
+
+    Owner approvals
+    Threshold rules per business:
+
+    Expense above threshold
+
+    Transfer above threshold
+
+    Agent funding above threshold
+    Owner approval: Approve/Reject + note; pending approvals tile.
+
+    Security (MVP)
+
+    Auth: phone + OTP (web/PWA friendly) plus optional 4-digit PIN after OTP.
+
+    Secure tokens/cookies, environment variables.
+
+    Audit log not editable by normal users.
+
+    Replit implementation (recommended stack)
+    Use Next.js + Prisma + SQLite for MVP (Postgres-ready), Tailwind or similar for fast clean UI.
+    Implement PWA manifest + service worker.
+    Implement IndexedDB for outbox queue and cached summaries.
+    Add seed script with the demo dataset below.
+    Provide README with run steps, demo logins, and DB switch instructions.
+
+    REQUIRED DEMO DATA (seed exactly like this, but you may adjust amounts slightly for realism)
+    A) Demo users (with roles)
+
+    Owner: “DEEBI Owner” (phone login placeholder), role Owner
+
+    Finance Lead: “eACG Finance” role Admin/Finance
+
+    Staff 1: “Machinery Accountant” role Staff (access Machinery only)
+
+    Staff 2: “Gold Desk” role Staff (access Gold only)
+
+    Staff 3: “Spare Parts Clerk” role Staff (access Spare Parts only)
+
+    Partner: “Fuel Partner” role Partner (Fuel only)
+
+    Auditor: “Auditor” role Read-only
+
+B) Ghana operations locations (use in dropdowns)
+Accra, Tema, Kumasi, Obuasi, Tamale, Sekondi–Takoradi, Sunyani, Cape Coast, Koforidua, Techiman.
+
+C) Bank accounts (create 6)
+Use common Ghana banks and two extra accounts:
+
+    GCB Bank (GHS) – “GCB-OPS”
+
+    Ecobank Ghana (GHS) – “ECO-OPS”
+
+    Absa Bank Ghana (GHS) – “ABSA-OPS”
+
+    Fidelity Bank Ghana (GHS) – “FID-OPS”
+
+    USD Account (USD) – “USD-TRD”
+
+    Cash Wallet (GHS) – “CASH”
+
+(Use realistic opening balances; ensure bank balances change with seeded transactions.)​
+
+D) Businesses (create 4)
+
+    “DEEBI Machinery” type machinery
+
+    “DEEBI Gold (Agents)” type gold_agent
+
+    “DEEBI Gold (Owner)” type gold_owner
+
+    “DEEBI Spare Parts” type spare_parts
+
+    “DEEBI Fuel Station” type fuel
+
+E) Machinery assets (create at least 6)
+Example asset types and statuses:
+
+    2 Excavators, 2 Wheel Loaders, 1 Bulldozer, 1 Backhoe.
+    Assign serial/chassis placeholders.
+    Statuses across pipeline: shipping, clearing, storage, sold, on lease.
+    Attach costs per asset via cost lines (purchase/shipping/clearing/transport/storage).
+
+Seed machinery cost lines (GHS) with breakdown categories:
+
+    Purchase (largest)
+
+    Shipping
+
+    Clearing
+
+    Transport
+
+    Storage
+    Ensure one asset is leased with a contract and 2–3 payments, including one overdue to demonstrate receivables.
+
+Seed machinery revenue:
+
+    2 cash sales (GHS)
+
+    Lease payments (GHS) with schedule.
+
+F) Gold lots (create at least 10 total)
+
+    6 lots via agents (stream 1), each tied to an agent; record funding out and later sale cash returned; include 1 underperforming agent with lower margin.
+
+    4 lots owner-sourced (stream 2), with purchase cost and sale.
+    Track grams and sale amounts; make stock status vary (in hand, sold).
+
+Create at least 4 agents with phone placeholders and locations (Accra, Kumasi, Obuasi, Tarkwa/Sekondi–Takoradi area as “Western Belt”).
+
+G) Spare parts inventory (create at least 12 items)
+Examples:
+Oil filter, Fuel filter, Hydraulic hose, Fan belt, Brake pads, Bearing set, Injector nozzle, Grease, Engine oil (drums), Tyres, Battery, Alternator.
+Seed inventory movements:
+
+    Stock-in purchases (GHS) and sales (GHS) over last 30–60 days.
+
+    At least 2 items below reorder level to trigger alerts.
+
+H) Fuel station (create 8–12 weekly summaries)
+Each summary includes:
+
+    sales (GHS), estimated expenses (optional), owner_share_pct (e.g., 40%), partner_share_pct (60%).
+
+    cash_remitted to Owner and variance vs expected.
+    Create at least 2 weeks with variance to show alerts.
+
+I) Ledger transactions (minimum 120 rows)
+Seed unified ledger across last 90 days:
+
+    Mix of bank payments, cash expenses, transfers, sales receipts, agent funding, lease receipts.
+
+    Include “Taxes/Levies” and “Salaries/Wages” categories for realism.
+
+    Include attachments on at least 15% of expense transactions (store sample URLs or local placeholders).
+
+    Acceptance criteria (must pass)
+
+    Owner sees bank balances + today’s cash movement + alerts within 10 seconds.
+
+    Staff records a machinery expense with photo under 60 seconds.
+
+    Machinery dashboard shows cost breakdown and profit snapshot.
+
+    Gold dashboard separates streams clearly and shows stock.
+
+    Spare parts shows stock + low stock alerts.
+
+    Fuel shows Owner share and variance.
+
+    Works well on phone; scales to tablet/laptop.
+
+    Adding a new business requires a new module + category template, not rewriting ledger.
+
+Now build the MVP. Do not ask questions unless absolutely blocking; if needed, make assumptions and document them in README.
