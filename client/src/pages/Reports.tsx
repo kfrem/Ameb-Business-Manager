@@ -26,7 +26,11 @@ export default function Reports() {
     queryFn: async () => {
       const params = new URLSearchParams({ month: selectedMonth });
       if (selectedBusiness !== 'all') params.set('business', selectedBusiness);
-      const res = await fetch(`/api/reports?${params}`);
+      const savedUser = localStorage.getItem('deebi_user');
+      const userId = savedUser ? JSON.parse(savedUser).id : null;
+      const headers: Record<string, string> = {};
+      if (userId) headers['X-User-Id'] = userId;
+      const res = await fetch(`/api/reports?${params}`, { headers });
       if (!res.ok) throw new Error('Failed to fetch reports');
       return res.json();
     },
