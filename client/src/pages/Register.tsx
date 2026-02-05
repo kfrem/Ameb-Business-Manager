@@ -61,7 +61,7 @@ export default function Register() {
     <div className="min-h-screen bg-gradient-to-b from-primary to-primary/80 flex flex-col">
       <div className="flex-1 flex flex-col items-center justify-center p-6">
         <div className="text-center text-white mb-8">
-          <h1 className="text-5xl font-bold tracking-tight">DEEBI</h1>
+          <h1 className="text-5xl font-bold tracking-tight">AMEB</h1>
           <p className="text-lg opacity-90 mt-2">Create Account</p>
         </div>
 
@@ -210,7 +210,7 @@ export default function Register() {
       </div>
 
       <div className="p-4 text-center text-white/70 text-sm">
-        DEEBI Business Manager v1.0
+        AMEB Business Manager v1.0
       </div>
     </div>
   );

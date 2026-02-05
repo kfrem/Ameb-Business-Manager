@@ -33,8 +33,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('deebi_user');
-    const savedBusiness = localStorage.getItem('deebi_business');
+    const savedUser = localStorage.getItem('ameb_user');
+    const savedBusiness = localStorage.getItem('ameb_business');
     if (savedUser) {
       const user = JSON.parse(savedUser);
       const business = savedBusiness ? JSON.parse(savedBusiness) : null;
@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       if (res.ok) {
         const { user, businesses } = await res.json();
-        localStorage.setItem('deebi_user', JSON.stringify(user));
+        localStorage.setItem('ameb_user', JSON.stringify(user));
         setState(prev => ({
           ...prev,
           user,
@@ -101,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (res.ok) {
         const { user, businesses } = data;
-        localStorage.setItem('deebi_user', JSON.stringify(user));
+        localStorage.setItem('ameb_user', JSON.stringify(user));
         setState(prev => ({
           ...prev,
           user,
@@ -118,8 +118,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    localStorage.removeItem('deebi_user');
-    localStorage.removeItem('deebi_business');
+    localStorage.removeItem('ameb_user');
+    localStorage.removeItem('ameb_business');
     setState({
       user: null,
       businesses: [],
@@ -131,9 +131,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const setCurrentBusiness = (business: Business | null) => {
     if (business) {
-      localStorage.setItem('deebi_business', JSON.stringify(business));
+      localStorage.setItem('ameb_business', JSON.stringify(business));
     } else {
-      localStorage.removeItem('deebi_business');
+      localStorage.removeItem('ameb_business');
     }
     setState(prev => ({ ...prev, currentBusiness: business }));
   };

@@ -12,7 +12,7 @@ const ThemeContext = createContext<ThemeContextType | null>(null);
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('deebi_theme') as Theme;
+      const saved = localStorage.getItem('ameb_theme') as Theme;
       return saved || 'light';
     }
     return 'light';
@@ -25,7 +25,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     } else {
       root.classList.remove('dark');
     }
-    localStorage.setItem('deebi_theme', theme);
+    localStorage.setItem('ameb_theme', theme);
   }, [theme]);
 
   const toggleTheme = () => {

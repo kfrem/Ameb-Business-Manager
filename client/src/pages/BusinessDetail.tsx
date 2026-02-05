@@ -27,17 +27,17 @@ export default function BusinessDetail() {
   const [, setLocation] = useLocation();
   const businessId = params?.id;
 
-  const { data: business, isLoading } = useQuery({
+  const { data: business, isLoading } = useQuery<any>({
     queryKey: ['/api/businesses', businessId],
     enabled: !!businessId,
   });
 
-  const { data: kpis } = useQuery({
+  const { data: kpis } = useQuery<any>({
     queryKey: ['/api/businesses', businessId, 'kpis'],
     enabled: !!businessId,
   });
 
-  const { data: alerts } = useQuery({
+  const { data: alerts } = useQuery<any[]>({
     queryKey: ['/api/alerts'],
   });
 

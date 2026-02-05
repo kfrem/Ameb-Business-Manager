@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 export default function Banks() {
   const [, setLocation] = useLocation();
 
-  const { data: bankAccounts, isLoading } = useQuery({
+  const { data: bankAccounts, isLoading } = useQuery<any[]>({
     queryKey: ['/api/bank-accounts'],
   });
 

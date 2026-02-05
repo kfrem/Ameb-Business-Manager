@@ -12,7 +12,7 @@ export default function Alerts() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const { data: alerts, isLoading } = useQuery({
+  const { data: alerts, isLoading } = useQuery<any[]>({
     queryKey: ['/api/alerts'],
   });
 

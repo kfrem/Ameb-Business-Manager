@@ -120,7 +120,7 @@ export const machineryCostLines = pgTable("machinery_cost_lines", {
 export const leaseContracts = pgTable("lease_contracts", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   assetId: varchar("asset_id", { length: 36 }).notNull().references(() => machineryAssets.id),
-  lesseeNname: text("lessee_name").notNull(),
+  lesseeName: text("lessee_name").notNull(),
   lesseePhone: varchar("lessee_phone", { length: 20 }),
   monthlyRate: decimal("monthly_rate", { precision: 15, scale: 2 }).notNull(),
   startDate: timestamp("start_date").notNull(),

@@ -18,7 +18,7 @@ interface HeaderProps {
   onMenuClick?: () => void;
 }
 
-export function Header({ title = 'DEEBI', showBack, onMenuClick }: HeaderProps) {
+export function Header({ title = 'AMEB', showBack, onMenuClick }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
 

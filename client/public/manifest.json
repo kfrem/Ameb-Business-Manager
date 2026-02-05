@@ -1,6 +1,6 @@
 {
-  "name": "DEEBI Business Manager",
-  "short_name": "DEEBI",
+  "name": "AMEB Business Manager",
+  "short_name": "AMEB",
   "description": "Business Management App for Ghana",
   "start_url": "/",
   "display": "standalone",

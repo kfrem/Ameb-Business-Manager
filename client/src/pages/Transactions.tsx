@@ -18,11 +18,11 @@ export default function Transactions() {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
 
-  const { data: transactions, isLoading } = useQuery({
+  const { data: transactions, isLoading } = useQuery<any[]>({
     queryKey: ['/api/transactions'],
   });
 
-  const { data: businesses } = useQuery({
+  const { data: businesses } = useQuery<any[]>({
     queryKey: ['/api/businesses'],
   });
 

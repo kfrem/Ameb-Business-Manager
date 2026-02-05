@@ -32,9 +32,9 @@ export default function NewEntry() {
   const [counterparty, setCounterparty] = useState('');
   const [notes, setNotes] = useState('');
 
-  const { data: businesses } = useQuery({ queryKey: ['/api/businesses'] });
-  const { data: categories } = useQuery({ queryKey: ['/api/categories'] });
-  const { data: bankAccounts } = useQuery({ queryKey: ['/api/bank-accounts'] });
+  const { data: businesses } = useQuery<any[]>({ queryKey: ['/api/businesses'] });
+  const { data: categories } = useQuery<any[]>({ queryKey: ['/api/categories'] });
+  const { data: bankAccounts } = useQuery<any[]>({ queryKey: ['/api/bank-accounts'] });
 
   const createTransaction = useMutation({
     mutationFn: async (data: any) => {

@@ -148,7 +148,7 @@ export async function seedDatabase() {
   const leasedAsset = createdAssets.find(a => a.status === 'on_lease')!;
   const leaseContract = await db.insert(leaseContracts).values({
     assetId: leasedAsset.id,
-    lesseeNname: 'Goldfields Mining Ltd',
+    lesseeName: 'Goldfields Mining Ltd',
     lesseePhone: '0248765432',
     monthlyRate: '8500',
     startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),

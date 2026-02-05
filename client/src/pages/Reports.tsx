@@ -17,16 +17,16 @@ export default function Reports() {
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [selectedBusiness, setSelectedBusiness] = useState('all');
 
-  const { data: businesses } = useQuery({
+  const { data: businesses } = useQuery<any[]>({
     queryKey: ['/api/businesses'],
   });
 
-  const { data: reportData, isLoading } = useQuery({
+  const { data: reportData, isLoading } = useQuery<any>({
     queryKey: ['/api/reports', { month: selectedMonth, business: selectedBusiness }],
     queryFn: async () => {
       const params = new URLSearchParams({ month: selectedMonth });
       if (selectedBusiness !== 'all') params.set('business', selectedBusiness);
-      const savedUser = localStorage.getItem('deebi_user');
+      const savedUser = localStorage.getItem('ameb_user');
       const userId = savedUser ? JSON.parse(savedUser).id : null;
       const headers: Record<string, string> = {};
       if (userId) headers['X-User-Id'] = userId;

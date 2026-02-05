@@ -356,7 +356,7 @@ export async function registerRoutes(
       if (!['owner', 'admin'].includes(req.user.role)) {
         const alerts = await storage.getAllAlerts();
         const alert = alerts.find((a: any) => a.id === req.params.id);
-        if (alert) {
+        if (alert && alert.businessId) {
           const hasAccess = await checkBusinessAccess(req.user.id, alert.businessId);
           if (!hasAccess) {
             return res.status(403).json({ error: "No access to dismiss this alert" });
@@ -364,7 +364,7 @@ export async function registerRoutes(
         }
       }
       
-      await storage.dismissAlert(req.params.id);
+      await storage.dismissAlert(req.params.id as string);
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to dismiss alert" });
@@ -399,7 +399,7 @@ export async function registerRoutes(
     try {
       // Validate request body
       approvalActionSchema.parse(req.body || {});
-      await storage.updateApprovalStatus(req.params.id, 'approved', req.user.id);
+      await storage.updateApprovalStatus(req.params.id as string, 'approved', req.user.id);
       res.json({ success: true });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -413,7 +413,7 @@ export async function registerRoutes(
     try {
       // Validate request body
       approvalActionSchema.parse(req.body || {});
-      await storage.updateApprovalStatus(req.params.id, 'rejected', req.user.id);
+      await storage.updateApprovalStatus(req.params.id as string, 'rejected', req.user.id);
       res.json({ success: true });
     } catch (error) {
       if (error instanceof z.ZodError) {
