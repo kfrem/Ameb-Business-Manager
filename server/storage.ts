@@ -587,7 +587,6 @@ export class DatabaseStorage implements IStorage {
       businessBreakdown,
     };
   }
-}
 
   // Bank account transactions
   async getTransactionsByBankAccount(bankAccountId: string): Promise<LedgerTransaction[]> {
