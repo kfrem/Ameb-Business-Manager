@@ -19,6 +19,7 @@ interface AuthContextType extends AuthState {
   register: (name: string, phone: string, pin: string) => Promise<RegisterResult>;
   logout: () => void;
   setCurrentBusiness: (business: Business | null) => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -138,8 +139,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState(prev => ({ ...prev, currentBusiness: business }));
   };
 
+  const refreshUser = async () => {
+    const savedUser = localStorage.getItem('ameb_user');
+    if (!savedUser) return;
+
+    try {
+      const currentUser = JSON.parse(savedUser);
+      // Re-login with same phone to get fresh user data
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: currentUser.phone }),
+      });
+      if (res.ok) {
+        const { user, businesses } = await res.json();
+        localStorage.setItem('ameb_user', JSON.stringify(user));
+        setState(prev => ({
+          ...prev,
+          user,
+          businesses,
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ ...state, login, register, logout, setCurrentBusiness }}>
+    <AuthContext.Provider value={{ ...state, login, register, logout, setCurrentBusiness, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

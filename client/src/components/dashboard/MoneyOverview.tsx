@@ -1,4 +1,4 @@
-import { Wallet, TrendingUp, TrendingDown, Building2 } from 'lucide-react';
+import { Wallet, TrendingUp, TrendingDown, Building2, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/constants';
 import { cn } from '@/lib/utils';
@@ -28,7 +28,7 @@ export function MoneyOverview({ totalBalance, todayIn, todayOut, banks }: MoneyO
           <p className="text-xs text-muted-foreground">Total</p>
           <p className="font-bold text-lg">{formatCurrency(totalBalance)}</p>
         </Card>
-        
+
         <Card className="p-3 text-center">
           <TrendingUp className="w-6 h-6 mx-auto text-green-500 mb-1" />
           <p className="text-xs text-muted-foreground">In Today</p>
@@ -36,7 +36,7 @@ export function MoneyOverview({ totalBalance, todayIn, todayOut, banks }: MoneyO
             {formatCurrency(todayIn)}
           </p>
         </Card>
-        
+
         <Card className="p-3 text-center">
           <TrendingDown className="w-6 h-6 mx-auto text-red-500 mb-1" />
           <p className="text-xs text-muted-foreground">Out Today</p>
@@ -46,37 +46,50 @@ export function MoneyOverview({ totalBalance, todayIn, todayOut, banks }: MoneyO
         </Card>
       </div>
 
-      <Link href="/banks">
-        <Card className="hover-elevate cursor-pointer">
-          <CardHeader className="pb-2 flex flex-row items-center gap-2">
-            <Building2 className="w-5 h-5 text-primary" />
-            <CardTitle className="text-base">Bank Accounts</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {banks.slice(0, 4).map(bank => (
-                <div key={bank.id} className="flex items-center justify-between py-1">
-                  <div>
-                    <p className="font-medium text-sm">{bank.accountRef}</p>
-                    <p className="text-xs text-muted-foreground">{bank.bankName}</p>
+      <Card>
+        <CardHeader className="pb-2 flex flex-row items-center gap-2">
+          <Building2 className="w-5 h-5 text-primary" />
+          <CardTitle className="text-base">Bank Accounts</CardTitle>
+          <Link href="/banks" className="ml-auto text-xs text-muted-foreground hover:text-primary">
+            View All
+          </Link>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-1">
+            {banks.slice(0, 4).map(bank => (
+              <Link key={bank.id} href={`/bank/${bank.id}`}>
+                <div className="flex items-center justify-between py-2 px-2 -mx-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors group">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Building2 className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">{bank.accountRef}</p>
+                      <p className="text-xs text-muted-foreground">{bank.bankName}</p>
+                    </div>
                   </div>
-                  <span className={cn(
-                    "font-semibold",
-                    bank.balance >= 0 ? "text-foreground" : "text-red-600"
-                  )}>
-                    {formatCurrency(bank.balance, bank.currency)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      "font-semibold",
+                      bank.balance >= 0 ? "text-foreground" : "text-red-600"
+                    )}>
+                      {formatCurrency(bank.balance, bank.currency)}
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
                 </div>
-              ))}
-              {banks.length > 4 && (
-                <p className="text-sm text-muted-foreground text-center pt-2">
+              </Link>
+            ))}
+            {banks.length > 4 && (
+              <Link href="/banks">
+                <p className="text-sm text-primary text-center pt-2 hover:underline cursor-pointer">
                   +{banks.length - 4} more accounts
                 </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </Link>
+              </Link>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

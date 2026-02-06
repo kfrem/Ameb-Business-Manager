@@ -27,6 +27,7 @@ export const users = pgTable("users", {
   pin: varchar("pin", { length: 4 }),
   role: roleEnum("role").notNull().default('staff'),
   isActive: boolean("is_active").notNull().default(true),
+  mustChangePin: boolean("must_change_pin").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

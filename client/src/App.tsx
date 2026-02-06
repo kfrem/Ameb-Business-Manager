@@ -15,6 +15,9 @@ import Transactions from "@/pages/Transactions";
 import Alerts from "@/pages/Alerts";
 import Banks from "@/pages/Banks";
 import Reports from "@/pages/Reports";
+import AdminUsers from "@/pages/AdminUsers";
+import ChangePIN from "@/pages/ChangePIN";
+import BankAccountDetail from "@/pages/BankAccountDetail";
 import NotFound from "@/pages/not-found";
 
 function AuthRoutes() {
@@ -28,7 +31,7 @@ function AuthRoutes() {
 }
 
 function ProtectedRoutes() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return (
@@ -45,6 +48,11 @@ function ProtectedRoutes() {
     return <AuthRoutes />;
   }
 
+  // Force PIN change for users with mustChangePin flag
+  if (user?.mustChangePin) {
+    return <ChangePIN />;
+  }
+
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
@@ -53,7 +61,10 @@ function ProtectedRoutes() {
       <Route path="/transactions" component={Transactions} />
       <Route path="/alerts" component={Alerts} />
       <Route path="/banks" component={Banks} />
+      <Route path="/bank/:id" component={BankAccountDetail} />
       <Route path="/reports" component={Reports} />
+      <Route path="/admin/users" component={AdminUsers} />
+      <Route path="/change-pin" component={ChangePIN} />
       <Route component={NotFound} />
     </Switch>
   );

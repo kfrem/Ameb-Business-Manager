@@ -1,7 +1,8 @@
-import { Menu, Moon, Sun, User, Bell } from 'lucide-react';
+import { Menu, Moon, Sun, User, Bell, Users, Key, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { Link, useLocation } from 'wouter';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,15 +22,29 @@ interface HeaderProps {
 export function Header({ title = 'AMEB', showBack, onMenuClick }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
+  const [, setLocation] = useLocation();
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
+  const isOwnerOrAdmin = user?.role === 'owner' || user?.role === 'admin';
+
   return (
     <header className="sticky top-0 z-40 bg-primary text-primary-foreground">
       <div className="flex items-center justify-between gap-2 h-14 px-4">
         <div className="flex items-center gap-3">
+          {showBack && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setLocation('/')}
+              className="text-primary-foreground hover:bg-primary/80"
+              data-testid="button-back"
+            >
+              <ArrowLeft className="w-6 h-6" />
+            </Button>
+          )}
           {onMenuClick && (
             <Button
               variant="ghost"
@@ -79,6 +94,21 @@ export function Header({ title = 'AMEB', showBack, onMenuClick }: HeaderProps) {
                     {user.role}
                   </Badge>
                 </div>
+                <DropdownMenuSeparator />
+                {isOwnerOrAdmin && (
+                  <Link href="/admin/users">
+                    <DropdownMenuItem data-testid="button-manage-users">
+                      <Users className="w-4 h-4 mr-2" />
+                      Manage Users
+                    </DropdownMenuItem>
+                  </Link>
+                )}
+                <Link href="/change-pin">
+                  <DropdownMenuItem data-testid="button-change-pin">
+                    <Key className="w-4 h-4 mr-2" />
+                    Change PIN
+                  </DropdownMenuItem>
+                </Link>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout} data-testid="button-logout">
                   Sign Out

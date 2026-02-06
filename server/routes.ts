@@ -150,6 +150,128 @@ export async function registerRoutes(
     }
   });
 
+  // Admin: Create new user with temporary PIN
+  app.post("/api/users", ownerOrAdmin, async (req, res) => {
+    try {
+      const { name, phone, pin, role } = req.body;
+
+      // Validate input
+      if (!name || typeof name !== 'string' || name.length < 2) {
+        return res.status(400).json({ error: "Name is required (2+ characters)" });
+      }
+      if (!phone || typeof phone !== 'string' || phone.length < 10) {
+        return res.status(400).json({ error: "Valid phone number is required (10+ digits)" });
+      }
+      if (!pin || typeof pin !== 'string' || pin.length !== 4) {
+        return res.status(400).json({ error: "PIN must be 4 digits" });
+      }
+
+      // Check if phone already exists
+      const existingUser = await storage.getUserByPhone(phone);
+      if (existingUser) {
+        return res.status(409).json({ error: "Phone number already registered" });
+      }
+
+      // Create new user with mustChangePin = true
+      const newUser = await storage.createUser({
+        name,
+        phone,
+        pin,
+        role: role || 'staff',
+        isActive: true,
+        mustChangePin: true  // Force PIN change on first login
+      });
+
+      res.status(201).json(newUser);
+    } catch (error) {
+      console.error("Create user error:", error);
+      res.status(500).json({ error: "Failed to create user" });
+    }
+  });
+
+  // Admin: Update user
+  app.patch("/api/users/:id", ownerOrAdmin, async (req, res) => {
+    try {
+      const { name, phone, role, isActive, pin, mustChangePin } = req.body;
+      const updates: any = {};
+
+      if (name !== undefined) updates.name = name;
+      if (phone !== undefined) updates.phone = phone;
+      if (role !== undefined) updates.role = role;
+      if (isActive !== undefined) updates.isActive = isActive;
+      if (pin !== undefined) updates.pin = pin;
+      if (mustChangePin !== undefined) updates.mustChangePin = mustChangePin;
+
+      const updatedUser = await storage.updateUser(req.params.id, updates);
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Update user error:", error);
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
+  // User: Change own PIN
+  app.post("/api/users/change-pin", async (req, res) => {
+    try {
+      const { currentPin, newPin } = req.body;
+
+      // Validate new PIN
+      if (!newPin || typeof newPin !== 'string' || newPin.length !== 4) {
+        return res.status(400).json({ error: "New PIN must be 4 digits" });
+      }
+
+      // For users with mustChangePin, we don't require current PIN validation
+      if (!req.user.mustChangePin) {
+        // Verify current PIN for users changing voluntarily
+        if (!currentPin || currentPin !== req.user.pin) {
+          return res.status(401).json({ error: "Current PIN is incorrect" });
+        }
+      }
+
+      // Update PIN and clear mustChangePin flag
+      const updatedUser = await storage.updateUser(req.user.id, {
+        pin: newPin,
+        mustChangePin: false
+      });
+
+      res.json({ success: true, user: updatedUser });
+    } catch (error) {
+      console.error("Change PIN error:", error);
+      res.status(500).json({ error: "Failed to change PIN" });
+    }
+  });
+
+  // Admin: Assign business access to user
+  app.post("/api/users/:id/businesses", ownerOrAdmin, async (req, res) => {
+    try {
+      const { businessId } = req.body;
+      if (!businessId) {
+        return res.status(400).json({ error: "Business ID is required" });
+      }
+
+      await storage.addUserBusinessAccess(req.params.id, businessId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Add business access error:", error);
+      res.status(500).json({ error: "Failed to add business access" });
+    }
+  });
+
+  // Admin: Remove business access from user
+  app.delete("/api/users/:id/businesses/:businessId", ownerOrAdmin, async (req, res) => {
+    try {
+      await storage.removeUserBusinessAccess(req.params.id, req.params.businessId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Remove business access error:", error);
+      res.status(500).json({ error: "Failed to remove business access" });
+    }
+  });
+
   app.get("/api/users/:id/businesses", async (req, res) => {
     try {
       // Users can only view their own businesses unless owner/admin
@@ -249,6 +371,29 @@ export async function registerRoutes(
       res.json(accounts);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch bank accounts" });
+    }
+  });
+
+  // Get single bank account details
+  app.get("/api/bank-accounts/:id", ownerOrAdmin, async (req, res) => {
+    try {
+      const account = await storage.getBankAccount(req.params.id);
+      if (!account) {
+        return res.status(404).json({ error: "Bank account not found" });
+      }
+      res.json(account);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch bank account" });
+    }
+  });
+
+  // Get transactions for a specific bank account
+  app.get("/api/bank-accounts/:id/transactions", ownerOrAdmin, async (req, res) => {
+    try {
+      const transactions = await storage.getTransactionsByBankAccount(req.params.id);
+      res.json(transactions);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch bank account transactions" });
     }
   });
 

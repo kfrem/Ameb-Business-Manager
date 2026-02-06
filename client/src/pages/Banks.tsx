@@ -62,38 +62,39 @@ export default function Banks() {
         ) : (
           <div className="space-y-3">
             {(bankAccounts || []).map((bank: any) => (
-              <Card
-                key={bank.id}
-                className="hover-elevate cursor-pointer"
-                data-testid={`bank-${bank.id}`}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-semibold text-lg">{bank.accountRef}</p>
-                      <p className="text-sm text-muted-foreground">{bank.bankName}</p>
-                      <Badge variant="outline" className="mt-2">
-                        {bank.currency}
-                      </Badge>
-                    </div>
-                    <div className="text-right">
-                      <p className={cn(
-                        "text-xl font-bold",
-                        parseFloat(bank.currentBalance) >= 0
-                          ? "text-foreground"
-                          : "text-red-600 dark:text-red-400"
-                      )}>
-                        {formatCurrency(parseFloat(bank.currentBalance), bank.currency)}
-                      </p>
-                      {bank.reconciled && (
-                        <Badge variant="secondary" className="mt-1 text-xs">
-                          Reconciled
+              <Link key={bank.id} href={`/bank/${bank.id}`}>
+                <Card
+                  className="hover-elevate cursor-pointer"
+                  data-testid={`bank-${bank.id}`}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-semibold text-lg">{bank.accountRef}</p>
+                        <p className="text-sm text-muted-foreground">{bank.bankName}</p>
+                        <Badge variant="outline" className="mt-2">
+                          {bank.currency}
                         </Badge>
-                      )}
+                      </div>
+                      <div className="text-right">
+                        <p className={cn(
+                          "text-xl font-bold",
+                          parseFloat(bank.currentBalance) >= 0
+                            ? "text-foreground"
+                            : "text-red-600 dark:text-red-400"
+                        )}>
+                          {formatCurrency(parseFloat(bank.currentBalance), bank.currency)}
+                        </p>
+                        {bank.reconciled && (
+                          <Badge variant="secondary" className="mt-1 text-xs">
+                            Reconciled
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </Link>
             ))}
           </div>
         )}

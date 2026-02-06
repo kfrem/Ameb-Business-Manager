@@ -28,6 +28,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByPhone(phone: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined>;
   getAllUsers(): Promise<User[]>;
 
   // Businesses
@@ -107,6 +108,13 @@ export interface IStorage {
   getDashboardData(): Promise<any>;
   getBusinessKPIs(businessId: string): Promise<any>;
   getReportData(month: string, businessId?: string): Promise<any>;
+
+  // Bank account transactions
+  getTransactionsByBankAccount(bankAccountId: string): Promise<LedgerTransaction[]>;
+
+  // User business access management
+  addUserBusinessAccess(userId: string, businessId: string): Promise<void>;
+  removeUserBusinessAccess(userId: string, businessId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -128,6 +136,11 @@ export class DatabaseStorage implements IStorage {
 
   async getAllUsers(): Promise<User[]> {
     return db.select().from(users);
+  }
+
+  async updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined> {
+    const result = await db.update(users).set(updates).where(eq(users.id, id)).returning();
+    return result[0];
   }
 
   // Businesses
@@ -573,6 +586,37 @@ export class DatabaseStorage implements IStorage {
       categoryBreakdown,
       businessBreakdown,
     };
+  }
+}
+
+  // Bank account transactions
+  async getTransactionsByBankAccount(bankAccountId: string): Promise<LedgerTransaction[]> {
+    return db.select().from(ledgerTransactions)
+      .where(eq(ledgerTransactions.bankAccountId, bankAccountId))
+      .orderBy(desc(ledgerTransactions.date));
+  }
+
+  // User business access management
+  async addUserBusinessAccess(userId: string, businessId: string): Promise<void> {
+    // Check if access already exists
+    const existing = await db.select().from(userBusinessAccess)
+      .where(and(
+        eq(userBusinessAccess.userId, userId),
+        eq(userBusinessAccess.businessId, businessId)
+      ))
+      .limit(1);
+
+    if (existing.length === 0) {
+      await db.insert(userBusinessAccess).values({ userId, businessId });
+    }
+  }
+
+  async removeUserBusinessAccess(userId: string, businessId: string): Promise<void> {
+    await db.delete(userBusinessAccess)
+      .where(and(
+        eq(userBusinessAccess.userId, userId),
+        eq(userBusinessAccess.businessId, businessId)
+      ));
   }
 }
 
