@@ -291,7 +291,7 @@ export async function registerRoutes(
       // Get businesses user has explicit access to
       const userBusinesses = await storage.getUserBusinesses(req.user.id);
       const userBusinessIds = userBusinesses.map(b => b.id);
-      
+
       // If user has no businesses, return empty dashboard
       if (userBusinessIds.length === 0) {
         return res.json({
@@ -302,12 +302,20 @@ export async function registerRoutes(
           totalBalance: 0
         });
       }
-      
+
       const data = await storage.getDashboardData();
       // Filter to only show businesses user has access to
-      data.businesses = data.businesses.filter((b: any) => 
+      data.businesses = data.businesses.filter((b: any) =>
         userBusinessIds.includes(b.id)
       );
+
+      // For non-owner/admin users, also filter bank accounts and totals
+      if (!['owner', 'admin'].includes(req.user.role)) {
+        // Non-privileged users see empty bank section (bank accounts are company-wide)
+        data.bankAccounts = [];
+        data.totalBalance = 0;
+      }
+
       res.json(data);
     } catch (error) {
       console.error("Dashboard error:", error);
