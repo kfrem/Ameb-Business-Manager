@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertLedgerTransactionSchema } from "@shared/schema";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 
 // Extend Express Request type
 declare global {
@@ -11,6 +12,12 @@ declare global {
       user?: any;
     }
   }
+}
+
+// Helper: Safely extract route param as string (Express 5 returns string | string[])
+function getParam(req: Request, name: string): string {
+  const val = req.params[name];
+  return Array.isArray(val) ? val[0] : val;
 }
 
 // Helper: Check if user has access to a business
@@ -77,25 +84,51 @@ export async function registerRoutes(
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { phone, pin } = req.body;
-      
+
       // Validate input
       if (!phone || typeof phone !== 'string') {
         return res.status(400).json({ error: "Phone number is required" });
       }
-      
+      if (!pin || typeof pin !== 'string') {
+        return res.status(400).json({ error: "PIN is required" });
+      }
+
       const user = await storage.getUserByPhone(phone);
-      
+
       if (!user) {
-        return res.status(401).json({ error: "User not found" });
+        return res.status(401).json({ error: "Invalid phone number or PIN" });
       }
-      
-      // Validate PIN
-      if (pin && user.pin && pin !== user.pin) {
-        return res.status(401).json({ error: "Invalid PIN" });
+
+      if (!user.isActive) {
+        return res.status(403).json({ error: "Account is deactivated" });
       }
-      
+
+      if (!user.pin) {
+        return res.status(401).json({ error: "Invalid phone number or PIN" });
+      }
+
+      // Validate PIN - support both hashed and legacy plaintext PINs
+      let pinValid = false;
+      if (user.pin.startsWith('$2')) {
+        // bcrypt hashed PIN
+        pinValid = await bcrypt.compare(pin, user.pin);
+      } else {
+        // Legacy plaintext PIN - verify and upgrade to hash
+        pinValid = pin === user.pin;
+        if (pinValid) {
+          const hashedPin = await bcrypt.hash(pin, 10);
+          await storage.updateUser(user.id, { pin: hashedPin });
+        }
+      }
+
+      if (!pinValid) {
+        return res.status(401).json({ error: "Invalid phone number or PIN" });
+      }
+
+      // Don't send the PIN hash to the client
+      const { pin: _pin, ...safeUser } = user;
       const businesses = await storage.getUserBusinesses(user.id);
-      res.json({ user, businesses });
+      res.json({ user: safeUser, businesses });
     } catch (error) {
       console.error("Login error:", error);
       res.status(500).json({ error: "Login failed" });
@@ -124,16 +157,21 @@ export async function registerRoutes(
         return res.status(409).json({ error: "Phone number already registered" });
       }
       
+      // Hash PIN before storing
+      const hashedPin = await bcrypt.hash(pin, 10);
+
       // Create new user as owner (they own their own businesses)
       const newUser = await storage.createUser({
         name,
         phone,
-        pin,
+        pin: hashedPin,
         role: 'owner',
         isActive: true
       });
-      
-      res.status(201).json({ user: newUser, businesses: [] });
+
+      // Don't send the PIN hash to the client
+      const { pin: _pin, ...safeUser } = newUser;
+      res.status(201).json({ user: safeUser, businesses: [] });
     } catch (error) {
       console.error("Registration error:", error);
       res.status(500).json({ error: "Registration failed" });
@@ -144,7 +182,9 @@ export async function registerRoutes(
   app.get("/api/users", ownerOrAdmin, async (req, res) => {
     try {
       const users = await storage.getAllUsers();
-      res.json(users);
+      // Strip PIN hashes from response
+      const safeUsers = users.map(({ pin, ...u }) => u);
+      res.json(safeUsers);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch users" });
     }
@@ -162,8 +202,18 @@ export async function registerRoutes(
       if (!phone || typeof phone !== 'string' || phone.length < 10) {
         return res.status(400).json({ error: "Valid phone number is required (10+ digits)" });
       }
-      if (!pin || typeof pin !== 'string' || pin.length !== 4) {
-        return res.status(400).json({ error: "PIN must be 4 digits" });
+      if (!pin || typeof pin !== 'string' || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+        return res.status(400).json({ error: "PIN must be exactly 4 digits" });
+      }
+
+      // Prevent role escalation - only owners can create admins/owners
+      const allowedRoles = ['staff', 'partner', 'auditor'];
+      if (req.user.role === 'owner') {
+        allowedRoles.push('admin', 'owner');
+      }
+      const assignedRole = role || 'staff';
+      if (!allowedRoles.includes(assignedRole)) {
+        return res.status(403).json({ error: `Cannot assign role '${assignedRole}'` });
       }
 
       // Check if phone already exists
@@ -172,17 +222,22 @@ export async function registerRoutes(
         return res.status(409).json({ error: "Phone number already registered" });
       }
 
+      // Hash PIN before storing
+      const hashedPin = await bcrypt.hash(pin, 10);
+
       // Create new user with mustChangePin = true
       const newUser = await storage.createUser({
         name,
         phone,
-        pin,
-        role: role || 'staff',
+        pin: hashedPin,
+        role: assignedRole,
         isActive: true,
-        mustChangePin: true  // Force PIN change on first login
+        mustChangePin: true
       });
 
-      res.status(201).json(newUser);
+      // Don't send PIN hash to client
+      const { pin: _pin, ...safeUser } = newUser;
+      res.status(201).json(safeUser);
     } catch (error) {
       console.error("Create user error:", error);
       res.status(500).json({ error: "Failed to create user" });
@@ -197,17 +252,42 @@ export async function registerRoutes(
 
       if (name !== undefined) updates.name = name;
       if (phone !== undefined) updates.phone = phone;
-      if (role !== undefined) updates.role = role;
       if (isActive !== undefined) updates.isActive = isActive;
-      if (pin !== undefined) updates.pin = pin;
       if (mustChangePin !== undefined) updates.mustChangePin = mustChangePin;
 
-      const updatedUser = await storage.updateUser(req.params.id, updates);
+      // Prevent role escalation - only owners can assign admin/owner roles
+      if (role !== undefined) {
+        const allowedRoles = ['staff', 'partner', 'auditor'];
+        if (req.user.role === 'owner') {
+          allowedRoles.push('admin', 'owner');
+        }
+        if (!allowedRoles.includes(role)) {
+          return res.status(403).json({ error: `Cannot assign role '${role}'` });
+        }
+        updates.role = role;
+      }
+
+      // Hash PIN if being reset
+      if (pin !== undefined) {
+        if (typeof pin !== 'string' || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+          return res.status(400).json({ error: "PIN must be exactly 4 digits" });
+        }
+        updates.pin = await bcrypt.hash(pin, 10);
+      }
+
+      // Prevent users from deactivating themselves
+      if (isActive === false && getParam(req, 'id') === req.user.id) {
+        return res.status(400).json({ error: "Cannot deactivate your own account" });
+      }
+
+      const updatedUser = await storage.updateUser(getParam(req, 'id'), updates);
       if (!updatedUser) {
         return res.status(404).json({ error: "User not found" });
       }
 
-      res.json(updatedUser);
+      // Don't send PIN hash to client
+      const { pin: _pin, ...safeUser } = updatedUser;
+      res.json(safeUser);
     } catch (error) {
       console.error("Update user error:", error);
       res.status(500).json({ error: "Failed to update user" });
@@ -220,25 +300,40 @@ export async function registerRoutes(
       const { currentPin, newPin } = req.body;
 
       // Validate new PIN
-      if (!newPin || typeof newPin !== 'string' || newPin.length !== 4) {
-        return res.status(400).json({ error: "New PIN must be 4 digits" });
+      if (!newPin || typeof newPin !== 'string' || newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
+        return res.status(400).json({ error: "New PIN must be exactly 4 digits" });
       }
 
       // For users with mustChangePin, we don't require current PIN validation
       if (!req.user.mustChangePin) {
-        // Verify current PIN for users changing voluntarily
-        if (!currentPin || currentPin !== req.user.pin) {
+        if (!currentPin || typeof currentPin !== 'string') {
+          return res.status(401).json({ error: "Current PIN is required" });
+        }
+        // Verify current PIN (support both hashed and plaintext)
+        let currentValid = false;
+        if (req.user.pin && req.user.pin.startsWith('$2')) {
+          currentValid = await bcrypt.compare(currentPin, req.user.pin);
+        } else {
+          currentValid = currentPin === req.user.pin;
+        }
+        if (!currentValid) {
           return res.status(401).json({ error: "Current PIN is incorrect" });
         }
       }
 
-      // Update PIN and clear mustChangePin flag
+      // Hash and update PIN, clear mustChangePin flag
+      const hashedPin = await bcrypt.hash(newPin, 10);
       const updatedUser = await storage.updateUser(req.user.id, {
-        pin: newPin,
+        pin: hashedPin,
         mustChangePin: false
       });
 
-      res.json({ success: true, user: updatedUser });
+      if (updatedUser) {
+        const { pin: _pin, ...safeUser } = updatedUser;
+        res.json({ success: true, user: safeUser });
+      } else {
+        res.status(500).json({ error: "Failed to change PIN" });
+      }
     } catch (error) {
       console.error("Change PIN error:", error);
       res.status(500).json({ error: "Failed to change PIN" });
@@ -248,12 +343,19 @@ export async function registerRoutes(
   // Admin: Assign business access to user
   app.post("/api/users/:id/businesses", ownerOrAdmin, async (req, res) => {
     try {
-      const { businessId } = req.body;
+      const { businessId, accessLevel } = req.body;
       if (!businessId) {
         return res.status(400).json({ error: "Business ID is required" });
       }
 
-      await storage.addUserBusinessAccess(req.params.id, businessId);
+      // Validate access level
+      const validLevels = ['full', 'view_only', 'transactions_only'];
+      const level = accessLevel || 'full';
+      if (!validLevels.includes(level)) {
+        return res.status(400).json({ error: "Invalid access level. Must be: full, view_only, or transactions_only" });
+      }
+
+      await storage.addUserBusinessAccess(getParam(req, 'id'), businessId, level);
       res.json({ success: true });
     } catch (error) {
       console.error("Add business access error:", error);
@@ -261,10 +363,27 @@ export async function registerRoutes(
     }
   });
 
+  // Admin: Update access level for a user's business
+  app.patch("/api/users/:id/businesses/:businessId", ownerOrAdmin, async (req, res) => {
+    try {
+      const { accessLevel } = req.body;
+      const validLevels = ['full', 'view_only', 'transactions_only'];
+      if (!accessLevel || !validLevels.includes(accessLevel)) {
+        return res.status(400).json({ error: "Invalid access level. Must be: full, view_only, or transactions_only" });
+      }
+
+      await storage.updateUserBusinessAccessLevel(getParam(req, 'id'), getParam(req, 'businessId'), accessLevel);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Update business access error:", error);
+      res.status(500).json({ error: "Failed to update business access" });
+    }
+  });
+
   // Admin: Remove business access from user
   app.delete("/api/users/:id/businesses/:businessId", ownerOrAdmin, async (req, res) => {
     try {
-      await storage.removeUserBusinessAccess(req.params.id, req.params.businessId);
+      await storage.removeUserBusinessAccess(getParam(req, 'id'), getParam(req, 'businessId'));
       res.json({ success: true });
     } catch (error) {
       console.error("Remove business access error:", error);
@@ -272,14 +391,15 @@ export async function registerRoutes(
     }
   });
 
+  // Get user's businesses with access levels
   app.get("/api/users/:id/businesses", async (req, res) => {
     try {
       // Users can only view their own businesses unless owner/admin
-      if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.params.id !== req.user.id) {
+      if (req.user.role !== 'owner' && req.user.role !== 'admin' && getParam(req, 'id') !== req.user.id) {
         return res.status(403).json({ error: "Cannot view other user's businesses" });
       }
-      const businesses = await storage.getUserBusinesses(req.params.id);
-      res.json(businesses);
+      const accessList = await storage.getUserBusinessAccessList(getParam(req, 'id'));
+      res.json(accessList);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch user businesses" });
     }
@@ -338,13 +458,13 @@ export async function registerRoutes(
     try {
       // Check access for non-owner/admin
       if (!['owner', 'admin', 'auditor'].includes(req.user.role)) {
-        const hasAccess = await checkBusinessAccess(req.user.id, req.params.id);
+        const hasAccess = await checkBusinessAccess(req.user.id, getParam(req, 'id'));
         if (!hasAccess) {
           return res.status(403).json({ error: "No access to this business" });
         }
       }
       
-      const business = await storage.getBusiness(req.params.id);
+      const business = await storage.getBusiness(getParam(req, 'id'));
       if (!business) {
         return res.status(404).json({ error: "Business not found" });
       }
@@ -358,13 +478,13 @@ export async function registerRoutes(
     try {
       // Check access for non-owner/admin
       if (!['owner', 'admin', 'auditor'].includes(req.user.role)) {
-        const hasAccess = await checkBusinessAccess(req.user.id, req.params.id);
+        const hasAccess = await checkBusinessAccess(req.user.id, getParam(req, 'id'));
         if (!hasAccess) {
           return res.status(403).json({ error: "No access to this business" });
         }
       }
       
-      const kpis = await storage.getBusinessKPIs(req.params.id);
+      const kpis = await storage.getBusinessKPIs(getParam(req, 'id'));
       res.json(kpis);
     } catch (error) {
       console.error("KPI error:", error);
@@ -385,7 +505,7 @@ export async function registerRoutes(
   // Get single bank account details
   app.get("/api/bank-accounts/:id", ownerOrAdmin, async (req, res) => {
     try {
-      const account = await storage.getBankAccount(req.params.id);
+      const account = await storage.getBankAccount(getParam(req, 'id'));
       if (!account) {
         return res.status(404).json({ error: "Bank account not found" });
       }
@@ -398,7 +518,7 @@ export async function registerRoutes(
   // Get transactions for a specific bank account
   app.get("/api/bank-accounts/:id/transactions", ownerOrAdmin, async (req, res) => {
     try {
-      const transactions = await storage.getTransactionsByBankAccount(req.params.id);
+      const transactions = await storage.getTransactionsByBankAccount(getParam(req, 'id'));
       res.json(transactions);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch bank account transactions" });
@@ -501,14 +621,14 @@ export async function registerRoutes(
   app.post("/api/alerts/:id/dismiss", canWrite, async (req, res) => {
     try {
       // Validate alert ID format
-      if (!req.params.id || req.params.id.length < 10) {
+      if (!getParam(req, 'id') || getParam(req, 'id').length < 10) {
         return res.status(400).json({ error: "Invalid alert ID" });
       }
       
       // Check business ownership for non-owner/admin
       if (!['owner', 'admin'].includes(req.user.role)) {
         const alerts = await storage.getAllAlerts();
-        const alert = alerts.find((a: any) => a.id === req.params.id);
+        const alert = alerts.find((a: any) => a.id === getParam(req, 'id'));
         if (alert && alert.businessId) {
           const hasAccess = await checkBusinessAccess(req.user.id, alert.businessId);
           if (!hasAccess) {
@@ -517,7 +637,7 @@ export async function registerRoutes(
         }
       }
       
-      await storage.dismissAlert(req.params.id as string);
+      await storage.dismissAlert(getParam(req, 'id'));
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to dismiss alert" });
@@ -552,7 +672,7 @@ export async function registerRoutes(
     try {
       // Validate request body
       approvalActionSchema.parse(req.body || {});
-      await storage.updateApprovalStatus(req.params.id as string, 'approved', req.user.id);
+      await storage.updateApprovalStatus(getParam(req, 'id'), 'approved', req.user.id);
       res.json({ success: true });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -566,7 +686,7 @@ export async function registerRoutes(
     try {
       // Validate request body
       approvalActionSchema.parse(req.body || {});
-      await storage.updateApprovalStatus(req.params.id as string, 'rejected', req.user.id);
+      await storage.updateApprovalStatus(getParam(req, 'id'), 'rejected', req.user.id);
       res.json({ success: true });
     } catch (error) {
       if (error instanceof z.ZodError) {

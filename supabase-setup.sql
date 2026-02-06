@@ -48,6 +48,7 @@ DROP TYPE IF EXISTS transaction_status CASCADE;
 DROP TYPE IF EXISTS machinery_status CASCADE;
 DROP TYPE IF EXISTS gold_lot_status CASCADE;
 DROP TYPE IF EXISTS approval_status CASCADE;
+DROP TYPE IF EXISTS access_level CASCADE;
 
 -- Step 1: Create all custom enum types
 -- (These are like dropdown options for certain columns)
@@ -60,6 +61,7 @@ CREATE TYPE transaction_status AS ENUM ('draft', 'posted');
 CREATE TYPE machinery_status AS ENUM ('ordered', 'shipping', 'clearing', 'transport', 'storage', 'sold', 'on_lease');
 CREATE TYPE gold_lot_status AS ENUM ('funded', 'in_hand', 'sold');
 CREATE TYPE approval_status AS ENUM ('pending', 'approved', 'rejected');
+CREATE TYPE access_level AS ENUM ('full', 'view_only', 'transactions_only');
 
 
 -- Step 2: Create all tables
@@ -69,9 +71,10 @@ CREATE TABLE users (
   id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   phone VARCHAR(20) NOT NULL UNIQUE,
-  pin VARCHAR(4),
+  pin VARCHAR(72),
   role role NOT NULL DEFAULT 'staff',
   is_active BOOLEAN NOT NULL DEFAULT true,
+  must_change_pin BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
@@ -86,11 +89,13 @@ CREATE TABLE businesses (
   created_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
--- User business access (links users to businesses)
+-- User business access (links users to businesses with access levels)
 CREATE TABLE user_business_access (
   id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id VARCHAR(36) NOT NULL REFERENCES users(id),
-  business_id VARCHAR(36) NOT NULL REFERENCES businesses(id)
+  business_id VARCHAR(36) NOT NULL REFERENCES businesses(id),
+  access_level access_level NOT NULL DEFAULT 'full',
+  UNIQUE(user_id, business_id)
 );
 
 -- Bank accounts
@@ -305,6 +310,16 @@ CREATE TABLE monthly_reports (
 );
 
 
+-- Step 2b: Create indexes for performance
+CREATE INDEX idx_user_business_access_user ON user_business_access(user_id);
+CREATE INDEX idx_user_business_access_business ON user_business_access(business_id);
+CREATE INDEX idx_ledger_transactions_business ON ledger_transactions(business_id);
+CREATE INDEX idx_ledger_transactions_date ON ledger_transactions(date);
+CREATE INDEX idx_ledger_transactions_bank ON ledger_transactions(bank_account_id);
+CREATE INDEX idx_alerts_business ON alerts(business_id);
+CREATE INDEX idx_alerts_read ON alerts(is_read);
+CREATE INDEX idx_approvals_status ON approvals(status);
+
 -- ============================================================
 -- Step 3: Seed demo data
 -- ============================================================
@@ -415,37 +430,37 @@ BEGIN
   -- ==========================================
   -- LINK USERS TO BUSINESSES
   -- ==========================================
-  -- Owner gets access to ALL businesses
-  INSERT INTO user_business_access (id, user_id, business_id) VALUES
-    (gen_random_uuid(), owner_id, machinery_biz_id),
-    (gen_random_uuid(), owner_id, gold_agent_biz_id),
-    (gen_random_uuid(), owner_id, gold_owner_biz_id),
-    (gen_random_uuid(), owner_id, spare_parts_biz_id),
-    (gen_random_uuid(), owner_id, fuel_biz_id);
+  -- Owner gets FULL access to ALL businesses
+  INSERT INTO user_business_access (id, user_id, business_id, access_level) VALUES
+    (gen_random_uuid(), owner_id, machinery_biz_id, 'full'),
+    (gen_random_uuid(), owner_id, gold_agent_biz_id, 'full'),
+    (gen_random_uuid(), owner_id, gold_owner_biz_id, 'full'),
+    (gen_random_uuid(), owner_id, spare_parts_biz_id, 'full'),
+    (gen_random_uuid(), owner_id, fuel_biz_id, 'full');
 
-  -- Admin gets access to ALL businesses
-  INSERT INTO user_business_access (id, user_id, business_id) VALUES
-    (gen_random_uuid(), admin_id, machinery_biz_id),
-    (gen_random_uuid(), admin_id, gold_agent_biz_id),
-    (gen_random_uuid(), admin_id, gold_owner_biz_id),
-    (gen_random_uuid(), admin_id, spare_parts_biz_id),
-    (gen_random_uuid(), admin_id, fuel_biz_id);
+  -- Admin gets FULL access to ALL businesses
+  INSERT INTO user_business_access (id, user_id, business_id, access_level) VALUES
+    (gen_random_uuid(), admin_id, machinery_biz_id, 'full'),
+    (gen_random_uuid(), admin_id, gold_agent_biz_id, 'full'),
+    (gen_random_uuid(), admin_id, gold_owner_biz_id, 'full'),
+    (gen_random_uuid(), admin_id, spare_parts_biz_id, 'full'),
+    (gen_random_uuid(), admin_id, fuel_biz_id, 'full');
 
-  -- Staff get access to their specific businesses
-  INSERT INTO user_business_access (id, user_id, business_id) VALUES
-    (gen_random_uuid(), staff_machinery_id, machinery_biz_id),
-    (gen_random_uuid(), staff_gold_id, gold_agent_biz_id),
-    (gen_random_uuid(), staff_gold_id, gold_owner_biz_id),
-    (gen_random_uuid(), staff_parts_id, spare_parts_biz_id),
-    (gen_random_uuid(), partner_fuel_id, fuel_biz_id);
+  -- Staff get transactions_only access to their specific businesses
+  INSERT INTO user_business_access (id, user_id, business_id, access_level) VALUES
+    (gen_random_uuid(), staff_machinery_id, machinery_biz_id, 'transactions_only'),
+    (gen_random_uuid(), staff_gold_id, gold_agent_biz_id, 'transactions_only'),
+    (gen_random_uuid(), staff_gold_id, gold_owner_biz_id, 'transactions_only'),
+    (gen_random_uuid(), staff_parts_id, spare_parts_biz_id, 'transactions_only'),
+    (gen_random_uuid(), partner_fuel_id, fuel_biz_id, 'view_only');
 
-  -- Auditor gets read access to ALL businesses
-  INSERT INTO user_business_access (id, user_id, business_id) VALUES
-    (gen_random_uuid(), auditor_id, machinery_biz_id),
-    (gen_random_uuid(), auditor_id, gold_agent_biz_id),
-    (gen_random_uuid(), auditor_id, gold_owner_biz_id),
-    (gen_random_uuid(), auditor_id, spare_parts_biz_id),
-    (gen_random_uuid(), auditor_id, fuel_biz_id);
+  -- Auditor gets view_only access to ALL businesses
+  INSERT INTO user_business_access (id, user_id, business_id, access_level) VALUES
+    (gen_random_uuid(), auditor_id, machinery_biz_id, 'view_only'),
+    (gen_random_uuid(), auditor_id, gold_agent_biz_id, 'view_only'),
+    (gen_random_uuid(), auditor_id, gold_owner_biz_id, 'view_only'),
+    (gen_random_uuid(), auditor_id, spare_parts_biz_id, 'view_only'),
+    (gen_random_uuid(), auditor_id, fuel_biz_id, 'view_only');
 
   -- ==========================================
   -- CREATE BANK ACCOUNTS

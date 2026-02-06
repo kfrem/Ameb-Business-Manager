@@ -24,18 +24,22 @@ export const users = pgTable("users", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   phone: varchar("phone", { length: 20 }).notNull().unique(),
-  pin: varchar("pin", { length: 4 }),
+  pin: varchar("pin", { length: 72 }),
   role: roleEnum("role").notNull().default('staff'),
   isActive: boolean("is_active").notNull().default(true),
   mustChangePin: boolean("must_change_pin").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Access level enum for granular permissions
+export const accessLevelEnum = pgEnum('access_level', ['full', 'view_only', 'transactions_only']);
+
 // User business access (many-to-many)
 export const userBusinessAccess = pgTable("user_business_access", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
   businessId: varchar("business_id", { length: 36 }).notNull().references(() => businesses.id),
+  accessLevel: accessLevelEnum("access_level").notNull().default('full'),
 });
 
 // Businesses table

@@ -113,8 +113,10 @@ export interface IStorage {
   getTransactionsByBankAccount(bankAccountId: string): Promise<LedgerTransaction[]>;
 
   // User business access management
-  addUserBusinessAccess(userId: string, businessId: string): Promise<void>;
+  addUserBusinessAccess(userId: string, businessId: string, accessLevel?: string): Promise<void>;
   removeUserBusinessAccess(userId: string, businessId: string): Promise<void>;
+  getUserBusinessAccessList(userId: string): Promise<any[]>;
+  updateUserBusinessAccessLevel(userId: string, businessId: string, accessLevel: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -596,7 +598,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // User business access management
-  async addUserBusinessAccess(userId: string, businessId: string): Promise<void> {
+  async addUserBusinessAccess(userId: string, businessId: string, accessLevel: string = 'full'): Promise<void> {
     // Check if access already exists
     const existing = await db.select().from(userBusinessAccess)
       .where(and(
@@ -606,12 +608,47 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
 
     if (existing.length === 0) {
-      await db.insert(userBusinessAccess).values({ userId, businessId });
+      await db.insert(userBusinessAccess).values({ userId, businessId, accessLevel: accessLevel as any });
+    } else {
+      // Update access level if already exists
+      await db.update(userBusinessAccess)
+        .set({ accessLevel: accessLevel as any })
+        .where(and(
+          eq(userBusinessAccess.userId, userId),
+          eq(userBusinessAccess.businessId, businessId)
+        ));
     }
   }
 
   async removeUserBusinessAccess(userId: string, businessId: string): Promise<void> {
     await db.delete(userBusinessAccess)
+      .where(and(
+        eq(userBusinessAccess.userId, userId),
+        eq(userBusinessAccess.businessId, businessId)
+      ));
+  }
+
+  async getUserBusinessAccessList(userId: string): Promise<any[]> {
+    const access = await db.select().from(userBusinessAccess)
+      .where(eq(userBusinessAccess.userId, userId));
+
+    if (access.length === 0) return [];
+
+    const businessIds = access.map(a => a.businessId);
+    const businessList = await db.select().from(businesses).where(inArray(businesses.id, businessIds));
+
+    return access.map(a => {
+      const business = businessList.find(b => b.id === a.businessId);
+      return {
+        ...a,
+        business,
+      };
+    });
+  }
+
+  async updateUserBusinessAccessLevel(userId: string, businessId: string, accessLevel: string): Promise<void> {
+    await db.update(userBusinessAccess)
+      .set({ accessLevel: accessLevel as any })
       .where(and(
         eq(userBusinessAccess.userId, userId),
         eq(userBusinessAccess.businessId, businessId)

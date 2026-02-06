@@ -58,7 +58,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { 'X-User-Id': userId }
       });
       if (res.ok) {
-        const businesses = await res.json();
+        const data = await res.json();
+        // Handle both formats: array of businesses or array of access objects with .business
+        const businesses = data.map((item: any) => item.business || item).filter(Boolean);
         setState(prev => ({ ...prev, businesses }));
       }
     } catch (error) {
