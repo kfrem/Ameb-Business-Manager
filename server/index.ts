@@ -4,6 +4,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase } from "./seed";
+import { runMigrations } from "./db";
 
 const app = express();
 const httpServer = createServer(app);
@@ -62,6 +63,13 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Run database migrations (add new enum values, etc.)
+  try {
+    await runMigrations();
+  } catch (error: any) {
+    console.log('Migration skipped:', error?.message || 'already up to date');
+  }
+
   // Seed the database with demo data (skip if already seeded or on error)
   try {
     await seedDatabase();
