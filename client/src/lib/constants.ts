@@ -15,6 +15,9 @@ export const CURRENCIES = [
   { code: 'GHS', symbol: 'GH₵', name: 'Ghana Cedi' },
   { code: 'USD', symbol: '$', name: 'US Dollar' },
   { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
+  { code: 'GBP', symbol: '£', name: 'British Pound' },
+  { code: 'NGN', symbol: '₦', name: 'Nigerian Naira' },
+  { code: 'CDF', symbol: 'FC', name: 'Congolese Franc' },
 ] as const;
 
 export const MACHINERY_STATUSES = [
@@ -37,7 +40,7 @@ export const COST_CATEGORIES = [
 
 export const formatCurrency = (amount: number | string, currency = 'GHS'): string => {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-  const symbols: Record<string, string> = { GHS: 'GH₵', USD: '$', CNY: '¥' };
+  const symbols: Record<string, string> = { GHS: 'GH₵', USD: '$', CNY: '¥', GBP: '£', NGN: '₦', CDF: 'FC' };
   return `${symbols[currency] || 'GH₵'}${num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 };
 

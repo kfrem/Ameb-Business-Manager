@@ -4,7 +4,7 @@ import {
   users, businesses, bankAccounts, categories, ledgerTransactions,
   machineryAssets, machineryCostLines, leaseContracts, leasePayments,
   agents, goldLots, inventoryItems, inventoryMovements, fuelSummaries,
-  alerts, approvals, auditLog, userBusinessAccess,
+  alerts, approvals, auditLog, userBusinessAccess, customers, suppliers,
   type User, type InsertUser,
   type Business, type InsertBusiness,
   type BankAccount, type InsertBankAccount,
@@ -21,6 +21,8 @@ import {
   type FuelSummary, type InsertFuelSummary,
   type Alert, type InsertAlert,
   type Approval, type InsertApproval,
+  type Customer, type InsertCustomer,
+  type Supplier, type InsertSupplier,
 } from '@shared/schema';
 
 export interface IStorage {
@@ -115,6 +117,19 @@ export interface IStorage {
   // User business access management
   addUserBusinessAccess(userId: string, businessId: string): Promise<void>;
   removeUserBusinessAccess(userId: string, businessId: string): Promise<void>;
+
+  // Customers
+  getCustomersByBusiness(businessId: string): Promise<Customer[]>;
+  getAllCustomers(): Promise<Customer[]>;
+  createCustomer(customer: InsertCustomer): Promise<Customer>;
+
+  // Suppliers
+  getSuppliersByBusiness(businessId: string): Promise<Supplier[]>;
+  getAllSuppliers(): Promise<Supplier[]>;
+  createSupplier(supplier: InsertSupplier): Promise<Supplier>;
+
+  // Today's transactions
+  getTodayTransactions(): Promise<LedgerTransaction[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -616,6 +631,47 @@ export class DatabaseStorage implements IStorage {
         eq(userBusinessAccess.userId, userId),
         eq(userBusinessAccess.businessId, businessId)
       ));
+  }
+
+  // Customers
+  async getCustomersByBusiness(businessId: string): Promise<Customer[]> {
+    return db.select().from(customers)
+      .where(and(eq(customers.businessId, businessId), eq(customers.isActive, true)))
+      .orderBy(customers.name);
+  }
+
+  async getAllCustomers(): Promise<Customer[]> {
+    return db.select().from(customers).where(eq(customers.isActive, true)).orderBy(customers.name);
+  }
+
+  async createCustomer(customer: InsertCustomer): Promise<Customer> {
+    const result = await db.insert(customers).values(customer).returning();
+    return result[0];
+  }
+
+  // Suppliers
+  async getSuppliersByBusiness(businessId: string): Promise<Supplier[]> {
+    return db.select().from(suppliers)
+      .where(and(eq(suppliers.businessId, businessId), eq(suppliers.isActive, true)))
+      .orderBy(suppliers.name);
+  }
+
+  async getAllSuppliers(): Promise<Supplier[]> {
+    return db.select().from(suppliers).where(eq(suppliers.isActive, true)).orderBy(suppliers.name);
+  }
+
+  async createSupplier(supplier: InsertSupplier): Promise<Supplier> {
+    const result = await db.insert(suppliers).values(supplier).returning();
+    return result[0];
+  }
+
+  // Today's transactions
+  async getTodayTransactions(): Promise<LedgerTransaction[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return db.select().from(ledgerTransactions)
+      .where(gte(ledgerTransactions.date, today))
+      .orderBy(desc(ledgerTransactions.date));
   }
 }
 

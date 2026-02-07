@@ -607,7 +607,7 @@ export async function registerRoutes(
       // Only users with gold business access can view agents
       if (!['owner', 'admin', 'auditor'].includes(req.user.role)) {
         const userBusinesses = await storage.getUserBusinesses(req.user.id);
-        const hasGoldAccess = userBusinesses.some((b: any) => 
+        const hasGoldAccess = userBusinesses.some((b: any) =>
           b.type === 'gold_agent' || b.type === 'gold_owner'
         );
         if (!hasGoldAccess) {
@@ -618,6 +618,164 @@ export async function registerRoutes(
       res.json(agents);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch agents" });
+    }
+  });
+
+  // Admin: Get ALL businesses (for assigning to users)
+  app.get("/api/admin/businesses", ownerOrAdmin, async (req, res) => {
+    try {
+      const allBusinesses = await storage.getAllBusinesses();
+      res.json(allBusinesses);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch businesses" });
+    }
+  });
+
+  // Customers routes
+  app.get("/api/customers", async (req, res) => {
+    try {
+      const { business } = req.query;
+      if (business && typeof business === 'string') {
+        const customers = await storage.getCustomersByBusiness(business);
+        res.json(customers);
+      } else {
+        const customers = await storage.getAllCustomers();
+        res.json(customers);
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch customers" });
+    }
+  });
+
+  app.post("/api/customers", canWrite, async (req, res) => {
+    try {
+      const { name, phone, email, address, notes, businessId } = req.body;
+      if (!name || name.length < 2) {
+        return res.status(400).json({ error: "Name is required" });
+      }
+      const customer = await storage.createCustomer({
+        name,
+        phone,
+        email,
+        address,
+        notes,
+        businessId,
+        isActive: true
+      });
+      res.status(201).json(customer);
+    } catch (error) {
+      console.error("Create customer error:", error);
+      res.status(500).json({ error: "Failed to create customer" });
+    }
+  });
+
+  // Suppliers routes
+  app.get("/api/suppliers", async (req, res) => {
+    try {
+      const { business } = req.query;
+      if (business && typeof business === 'string') {
+        const suppliers = await storage.getSuppliersByBusiness(business);
+        res.json(suppliers);
+      } else {
+        const suppliers = await storage.getAllSuppliers();
+        res.json(suppliers);
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch suppliers" });
+    }
+  });
+
+  app.post("/api/suppliers", canWrite, async (req, res) => {
+    try {
+      const { name, phone, email, address, category, notes, businessId } = req.body;
+      if (!name || name.length < 2) {
+        return res.status(400).json({ error: "Name is required" });
+      }
+      const supplier = await storage.createSupplier({
+        name,
+        phone,
+        email,
+        address,
+        category,
+        notes,
+        businessId,
+        isActive: true
+      });
+      res.status(201).json(supplier);
+    } catch (error) {
+      console.error("Create supplier error:", error);
+      res.status(500).json({ error: "Failed to create supplier" });
+    }
+  });
+
+  // Today's transactions (for money overview drill-down)
+  app.get("/api/transactions/today", async (req, res) => {
+    try {
+      const transactions = await storage.getTodayTransactions();
+
+      // Filter by user's business access
+      if (!['owner', 'admin', 'auditor'].includes(req.user.role)) {
+        const userBusinesses = await storage.getUserBusinesses(req.user.id);
+        const filtered = transactions.filter((t: any) =>
+          userBusinesses.some(b => b.id === t.businessId)
+        );
+        res.json(filtered);
+      } else {
+        res.json(transactions);
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch today's transactions" });
+    }
+  });
+
+  // Categories with direction filtering
+  app.get("/api/categories/by-direction", async (req, res) => {
+    try {
+      const { direction } = req.query;
+      const allCategories = await storage.getAllCategories();
+
+      // Define which categories belong to which direction
+      const expenseCategories = [
+        'Cost of Goods', 'Salaries', 'Rent', 'Utilities', 'Transport',
+        'Fuel', 'Maintenance', 'Supplies', 'Insurance', 'Taxes',
+        'Marketing', 'Professional Fees', 'Bank Charges', 'Clearing',
+        'Shipping', 'Storage', 'Purchase', 'Other Expense'
+      ];
+
+      const incomeCategories = [
+        'Sales', 'Revenue', 'Service Income', 'Rental Income', 'Commission',
+        'Interest Income', 'Other Income'
+      ];
+
+      const incomeSources = [
+        { id: 'loan', name: 'Loan Received', isIncomeSource: true },
+        { id: 'overdraft', name: 'Bank Overdraft', isIncomeSource: true },
+        { id: 'owner_injection', name: 'Owner Capital Injection', isIncomeSource: true },
+        { id: 'friend_borrowing', name: 'Friend/Family Borrowing', isIncomeSource: true },
+        { id: 'refund', name: 'Refund Received', isIncomeSource: true },
+      ];
+
+      if (direction === 'out') {
+        // For money out, show only expense categories
+        const filtered = allCategories.filter((c: any) =>
+          expenseCategories.some(ec => c.name.toLowerCase().includes(ec.toLowerCase()))
+          || !incomeCategories.some(ic => c.name.toLowerCase().includes(ic.toLowerCase()))
+        );
+        res.json(filtered);
+      } else if (direction === 'in') {
+        // For money in, show income categories plus income sources
+        const filtered = allCategories.filter((c: any) =>
+          incomeCategories.some(ic => c.name.toLowerCase().includes(ic.toLowerCase()))
+          || !expenseCategories.some(ec => c.name.toLowerCase().includes(ec.toLowerCase()))
+        );
+        // Add income sources as special categories
+        const withSources = [...filtered, ...incomeSources];
+        res.json(withSources);
+      } else {
+        res.json(allCategories);
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch categories" });
     }
   });
 

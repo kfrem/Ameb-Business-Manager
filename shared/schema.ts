@@ -6,7 +6,7 @@ import { z } from "zod";
 // Enums
 export const roleEnum = pgEnum('role', ['owner', 'admin', 'staff', 'partner', 'auditor']);
 export const businessTypeEnum = pgEnum('business_type', ['machinery', 'gold_agent', 'gold_owner', 'spare_parts', 'fuel']);
-export const currencyEnum = pgEnum('currency', ['GHS', 'USD', 'CNY']);
+export const currencyEnum = pgEnum('currency', ['GHS', 'USD', 'CNY', 'GBP', 'NGN', 'CDF']);
 export const transactionDirectionEnum = pgEnum('transaction_direction', ['in', 'out']);
 export const transactionStatusEnum = pgEnum('transaction_status', ['draft', 'posted']);
 export const machineryStatusEnum = pgEnum('machinery_status', ['ordered', 'shipping', 'clearing', 'transport', 'storage', 'sold', 'on_lease']);
@@ -79,6 +79,10 @@ export const ledgerTransactions = pgTable("ledger_transactions", {
   businessId: varchar("business_id", { length: 36 }).notNull().references(() => businesses.id),
   bankAccountId: varchar("bank_account_id", { length: 36 }).references(() => bankAccounts.id),
   categoryId: varchar("category_id", { length: 36 }).references(() => categories.id),
+  customerId: varchar("customer_id", { length: 36 }),
+  supplierId: varchar("supplier_id", { length: 36 }),
+  incomeSource: text("income_source"),
+  assetId: varchar("asset_id", { length: 36 }),
   subcategory: text("subcategory"),
   counterparty: text("counterparty"),
   reference: text("reference"),
@@ -238,6 +242,36 @@ export const approvals = pgTable("approvals", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Customers table
+export const customers = pgTable("customers", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  businessId: varchar("business_id", { length: 36 }).references(() => businesses.id),
+  name: text("name").notNull(),
+  phone: varchar("phone", { length: 20 }),
+  email: text("email"),
+  address: text("address"),
+  notes: text("notes"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Suppliers table
+export const suppliers = pgTable("suppliers", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  businessId: varchar("business_id", { length: 36 }).references(() => businesses.id),
+  name: text("name").notNull(),
+  phone: varchar("phone", { length: 20 }),
+  email: text("email"),
+  address: text("address"),
+  category: text("category"),
+  notes: text("notes"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Income source types for categorization
+export const incomeSourceEnum = pgEnum('income_source', ['sales', 'loan', 'overdraft', 'owner_injection', 'friend_borrowing', 'other']);
+
 // Audit log
 export const auditLog = pgTable("audit_log", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
@@ -277,6 +311,8 @@ export const insertInventoryMovementSchema = createInsertSchema(inventoryMovemen
 export const insertFuelSummarySchema = createInsertSchema(fuelSummaries).omit({ id: true, createdAt: true });
 export const insertAlertSchema = createInsertSchema(alerts).omit({ id: true, createdAt: true });
 export const insertApprovalSchema = createInsertSchema(approvals).omit({ id: true, createdAt: true });
+export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, createdAt: true });
+export const insertSupplierSchema = createInsertSchema(suppliers).omit({ id: true, createdAt: true });
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -314,3 +350,7 @@ export type Approval = typeof approvals.$inferSelect;
 export type UserBusinessAccess = typeof userBusinessAccess.$inferSelect;
 export type AuditLog = typeof auditLog.$inferSelect;
 export type MonthlyReport = typeof monthlyReports.$inferSelect;
+export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
+export type Customer = typeof customers.$inferSelect;
+export type InsertSupplier = z.infer<typeof insertSupplierSchema>;
+export type Supplier = typeof suppliers.$inferSelect;
