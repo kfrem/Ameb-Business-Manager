@@ -1,6 +1,6 @@
 import { useRoute } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, TrendingUp, TrendingDown, Package, Truck, Gem, Wrench, Fuel, ChevronRight, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Package, Truck, Gem, Wrench, Fuel, ChevronRight, AlertTriangle, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,7 +11,7 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { DonutChart } from '@/components/charts/DonutChart';
 import { BarChartComponent } from '@/components/charts/BarChart';
 import { AlertsList } from '@/components/dashboard/AlertsList';
-import { formatCurrency } from '@/lib/constants';
+import { formatCurrency, formatDate } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 
 const iconMap: Record<string, any> = {
@@ -41,6 +41,21 @@ export default function BusinessDetail() {
     queryKey: ['/api/alerts'],
   });
 
+  // Fetch recent transactions for this business
+  const { data: transactions } = useQuery<any[]>({
+    queryKey: ['/api/transactions', { business: businessId }],
+    queryFn: async () => {
+      const savedUser = localStorage.getItem('amt_user');
+      const userId = savedUser ? JSON.parse(savedUser).id : null;
+      const headers: Record<string, string> = {};
+      if (userId) headers['X-User-Id'] = userId;
+      const res = await fetch(`/api/transactions?business=${businessId}`, { headers });
+      if (!res.ok) throw new Error('Failed');
+      return res.json();
+    },
+    enabled: !!businessId,
+  });
+
   if (isLoading || !business) {
     return (
       <div className="min-h-screen bg-background pb-20">
@@ -62,7 +77,7 @@ export default function BusinessDetail() {
 
   const Icon = iconMap[business.type] || Package;
   const businessAlerts = (alerts || []).filter((a: any) => a.businessId === businessId && !a.isRead);
-  
+
   const {
     totalRevenue = 0,
     totalExpenses = 0,
@@ -74,6 +89,8 @@ export default function BusinessDetail() {
     statusCounts = {},
     receivables = 0,
   } = kpis || {};
+
+  const recentTxns = (transactions || []).slice(0, 10);
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -94,31 +111,41 @@ export default function BusinessDetail() {
       </header>
 
       <main className="p-4 space-y-4 max-w-2xl mx-auto">
+        {/* KPI Cards — all clickable, drilling down to filtered transactions */}
         <div className="grid grid-cols-3 gap-3">
-          <Card className="p-3 text-center">
-            <TrendingUp className="w-5 h-5 mx-auto text-green-500 mb-1" />
-            <p className="text-xs text-muted-foreground">Revenue</p>
-            <p className="font-bold text-base text-green-600 dark:text-green-400">
-              {formatCurrency(totalRevenue)}
-            </p>
-          </Card>
-          <Card className="p-3 text-center">
-            <TrendingDown className="w-5 h-5 mx-auto text-red-500 mb-1" />
-            <p className="text-xs text-muted-foreground">Expenses</p>
-            <p className="font-bold text-base text-red-600 dark:text-red-400">
-              {formatCurrency(totalExpenses)}
-            </p>
-          </Card>
-          <Card className="p-3 text-center">
-            <Package className="w-5 h-5 mx-auto text-primary mb-1" />
-            <p className="text-xs text-muted-foreground">Profit</p>
-            <p className={cn(
-              "font-bold text-base",
-              profit >= 0 ? "text-primary" : "text-red-600"
-            )}>
-              {formatCurrency(profit)}
-            </p>
-          </Card>
+          <Link href={`/transactions?business=${businessId}&filter=in`}>
+            <Card className="p-3 text-center hover:bg-muted/50 cursor-pointer transition-colors">
+              <TrendingUp className="w-5 h-5 mx-auto text-green-500 mb-1" />
+              <p className="text-xs text-muted-foreground">Revenue</p>
+              <p className="font-bold text-base text-green-600 dark:text-green-400">
+                {formatCurrency(totalRevenue)}
+              </p>
+              <p className="text-[10px] text-green-600 mt-0.5">Tap to view</p>
+            </Card>
+          </Link>
+          <Link href={`/transactions?business=${businessId}&filter=out`}>
+            <Card className="p-3 text-center hover:bg-muted/50 cursor-pointer transition-colors">
+              <TrendingDown className="w-5 h-5 mx-auto text-red-500 mb-1" />
+              <p className="text-xs text-muted-foreground">Expenses</p>
+              <p className="font-bold text-base text-red-600 dark:text-red-400">
+                {formatCurrency(totalExpenses)}
+              </p>
+              <p className="text-[10px] text-red-600 mt-0.5">Tap to view</p>
+            </Card>
+          </Link>
+          <Link href={`/transactions?business=${businessId}`}>
+            <Card className="p-3 text-center hover:bg-muted/50 cursor-pointer transition-colors">
+              <Package className="w-5 h-5 mx-auto text-primary mb-1" />
+              <p className="text-xs text-muted-foreground">Profit</p>
+              <p className={cn(
+                "font-bold text-base",
+                profit >= 0 ? "text-primary" : "text-red-600"
+              )}>
+                {formatCurrency(profit)}
+              </p>
+              <p className="text-[10px] text-primary mt-0.5">Tap to view</p>
+            </Card>
+          </Link>
         </div>
 
         {receivables > 0 && (
@@ -138,7 +165,14 @@ export default function BusinessDetail() {
         <Tabs defaultValue="overview" className="w-full">
           <TabsList className="w-full grid grid-cols-3">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="transactions">
+              Transactions
+              {recentTxns.length > 0 && (
+                <Badge variant="secondary" className="ml-1 text-xs">
+                  {transactions?.length || 0}
+                </Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="alerts">
               Alerts
               {businessAlerts.length > 0 && (
@@ -153,7 +187,7 @@ export default function BusinessDetail() {
             {costBreakdown.length > 0 && (
               <DonutChart title="Cost Breakdown" data={costBreakdown} />
             )}
-            
+
             {revenueBreakdown.length > 0 && (
               <BarChartComponent title="Revenue Sources" data={revenueBreakdown} horizontal />
             )}
@@ -177,20 +211,65 @@ export default function BusinessDetail() {
             )}
           </TabsContent>
 
-          <TabsContent value="details" className="space-y-4 mt-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Recent Transactions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Link href={`/transactions?business=${businessId}`}>
-                  <Button variant="outline" className="w-full">
-                    View All Transactions
-                    <ChevronRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
+          <TabsContent value="transactions" className="space-y-4 mt-4">
+            {recentTxns.length === 0 ? (
+              <Card className="text-center py-8">
+                <CardContent>
+                  <p className="text-muted-foreground">No transactions yet</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  {recentTxns.map((tx: any) => (
+                    <Link key={tx.id} href={`/transaction/${tx.id}`}>
+                      <Card className="hover-elevate cursor-pointer transition-colors hover:bg-muted/30">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "w-9 h-9 rounded-full flex items-center justify-center shrink-0",
+                              tx.direction === 'in'
+                                ? "bg-green-100 dark:bg-green-900/30"
+                                : "bg-red-100 dark:bg-red-900/30"
+                            )}>
+                              {tx.direction === 'in' ? (
+                                <ArrowDownLeft className="w-4 h-4 text-green-600" />
+                              ) : (
+                                <ArrowUpRight className="w-4 h-4 text-red-600" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">
+                                {tx.counterparty || tx.notes || 'Transaction'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatDate(tx.date)}
+                              </p>
+                            </div>
+                            <p className={cn(
+                              "font-semibold text-sm",
+                              tx.direction === 'in' ? "text-green-600" : "text-red-600"
+                            )}>
+                              {tx.direction === 'in' ? '+' : '-'}
+                              {formatCurrency(parseFloat(tx.amount), tx.currency)}
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+
+                {(transactions?.length || 0) > 10 && (
+                  <Link href={`/transactions?business=${businessId}`}>
+                    <Button variant="outline" className="w-full">
+                      View All {transactions?.length} Transactions
+                      <ChevronRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </Link>
+                )}
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="alerts" className="mt-4">

@@ -12,6 +12,7 @@ import Dashboard from "@/pages/Dashboard";
 import NewEntry from "@/pages/NewEntry";
 import BusinessDetail from "@/pages/BusinessDetail";
 import Transactions from "@/pages/Transactions";
+import TransactionDetail from "@/pages/TransactionDetail";
 import Alerts from "@/pages/Alerts";
 import Banks from "@/pages/Banks";
 import Reports from "@/pages/Reports";
@@ -62,6 +63,7 @@ function ProtectedRoutes() {
       <Route path="/new-entry" component={NewEntry} />
       <Route path="/business/:id" component={BusinessDetail} />
       <Route path="/transactions" component={Transactions} />
+      <Route path="/transaction/:id" component={TransactionDetail} />
       <Route path="/alerts" component={Alerts} />
       <Route path="/banks" component={Banks} />
       <Route path="/bank/:id" component={BankAccountDetail} />

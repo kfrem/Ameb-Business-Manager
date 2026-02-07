@@ -840,7 +840,7 @@ export async function registerRoutes(
     }
   });
 
-  // Today's transactions (for money overview drill-down)
+  // Today's transactions (for money overview drill-down) — MUST be before :id route
   app.get("/api/transactions/today", async (req, res) => {
     try {
       const transactions = await storage.getTodayTransactions();
@@ -857,6 +857,39 @@ export async function registerRoutes(
       }
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch today's transactions" });
+    }
+  });
+
+  // Single transaction detail (for drill-down) — MUST be after /today route
+  app.get("/api/transactions/:id", async (req, res) => {
+    try {
+      const transaction = await storage.getTransaction(req.params.id);
+      if (!transaction) {
+        return res.status(404).json({ error: "Transaction not found" });
+      }
+
+      // Check business access for non-privileged users
+      if (!['owner', 'admin', 'auditor'].includes(req.user.role)) {
+        const hasAccess = await checkBusinessAccess(req.user.id, transaction.businessId);
+        if (!hasAccess) {
+          return res.status(403).json({ error: "No access to this transaction" });
+        }
+      }
+
+      // Enrich with related data
+      const business = transaction.businessId ? await storage.getBusiness(transaction.businessId) : null;
+      const category = transaction.categoryId ? await storage.getCategory(transaction.categoryId) : null;
+      const bankAccount = transaction.bankAccountId ? await storage.getBankAccount(transaction.bankAccountId) : null;
+
+      res.json({
+        ...transaction,
+        businessName: business?.name || null,
+        categoryName: category?.name || null,
+        bankAccountName: bankAccount ? `${bankAccount.bankName} - ${bankAccount.accountRef}` : null,
+      });
+    } catch (error) {
+      console.error("Transaction detail error:", error);
+      res.status(500).json({ error: "Failed to fetch transaction" });
     }
   });
 

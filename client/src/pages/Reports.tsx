@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, BarChart3, Download, FileText, Calendar } from 'lucide-react';
-import { useLocation } from 'wouter';
+import { useLocation, Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -10,10 +10,12 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { DonutChart } from '@/components/charts/DonutChart';
 import { BarChartComponent } from '@/components/charts/BarChart';
 import { formatCurrency } from '@/lib/constants';
+import { useToast } from '@/hooks/use-toast';
 import { format, subMonths } from 'date-fns';
 
 export default function Reports() {
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [selectedBusiness, setSelectedBusiness] = useState('all');
 
@@ -51,6 +53,16 @@ export default function Reports() {
     categoryBreakdown = [],
     businessBreakdown = [],
   } = reportData || {};
+
+  // Build transaction link with current filters
+  const txBase = selectedBusiness !== 'all' ? `business=${selectedBusiness}` : '';
+
+  const handleExport = (type: 'pdf' | 'csv') => {
+    toast({
+      title: `${type.toUpperCase()} export coming soon`,
+      description: 'This feature is on the roadmap. For now, use the drill-down to view transactions.',
+    });
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -107,25 +119,35 @@ export default function Reports() {
           </div>
         ) : (
           <>
+            {/* KPI Cards — clickable for drill-down */}
             <div className="grid grid-cols-3 gap-3">
-              <Card className="p-3 text-center">
-                <p className="text-xs text-muted-foreground">Revenue</p>
-                <p className="font-bold text-base text-green-600 dark:text-green-400">
-                  {formatCurrency(totalRevenue)}
-                </p>
-              </Card>
-              <Card className="p-3 text-center">
-                <p className="text-xs text-muted-foreground">Expenses</p>
-                <p className="font-bold text-base text-red-600 dark:text-red-400">
-                  {formatCurrency(totalExpenses)}
-                </p>
-              </Card>
-              <Card className="p-3 text-center">
-                <p className="text-xs text-muted-foreground">Profit</p>
-                <p className={`font-bold text-base ${profit >= 0 ? 'text-primary' : 'text-red-600'}`}>
-                  {formatCurrency(profit)}
-                </p>
-              </Card>
+              <Link href={`/transactions?filter=in${txBase ? '&' + txBase : ''}`}>
+                <Card className="p-3 text-center hover:bg-muted/50 cursor-pointer transition-colors">
+                  <p className="text-xs text-muted-foreground">Revenue</p>
+                  <p className="font-bold text-base text-green-600 dark:text-green-400">
+                    {formatCurrency(totalRevenue)}
+                  </p>
+                  <p className="text-[10px] text-green-600 mt-0.5">Tap to view</p>
+                </Card>
+              </Link>
+              <Link href={`/transactions?filter=out${txBase ? '&' + txBase : ''}`}>
+                <Card className="p-3 text-center hover:bg-muted/50 cursor-pointer transition-colors">
+                  <p className="text-xs text-muted-foreground">Expenses</p>
+                  <p className="font-bold text-base text-red-600 dark:text-red-400">
+                    {formatCurrency(totalExpenses)}
+                  </p>
+                  <p className="text-[10px] text-red-600 mt-0.5">Tap to view</p>
+                </Card>
+              </Link>
+              <Link href={`/transactions${txBase ? '?' + txBase : ''}`}>
+                <Card className="p-3 text-center hover:bg-muted/50 cursor-pointer transition-colors">
+                  <p className="text-xs text-muted-foreground">Profit</p>
+                  <p className={`font-bold text-base ${profit >= 0 ? 'text-primary' : 'text-red-600'}`}>
+                    {formatCurrency(profit)}
+                  </p>
+                  <p className="text-[10px] text-primary mt-0.5">Tap to view</p>
+                </Card>
+              </Link>
             </div>
 
             {categoryBreakdown.length > 0 && (
@@ -137,11 +159,21 @@ export default function Reports() {
             )}
 
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" data-testid="button-export-pdf">
+              <Button
+                variant="outline"
+                className="flex-1"
+                data-testid="button-export-pdf"
+                onClick={() => handleExport('pdf')}
+              >
                 <FileText className="w-4 h-4 mr-2" />
                 Export PDF
               </Button>
-              <Button variant="outline" className="flex-1" data-testid="button-export-csv">
+              <Button
+                variant="outline"
+                className="flex-1"
+                data-testid="button-export-csv"
+                onClick={() => handleExport('csv')}
+              >
                 <Download className="w-4 h-4 mr-2" />
                 Export CSV
               </Button>

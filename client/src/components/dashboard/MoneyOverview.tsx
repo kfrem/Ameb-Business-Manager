@@ -23,27 +23,39 @@ export function MoneyOverview({ totalBalance, todayIn, todayOut, banks }: MoneyO
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
-        <Card className="p-3 text-center">
-          <Wallet className="w-6 h-6 mx-auto text-primary mb-1" />
-          <p className="text-xs text-muted-foreground">Total</p>
-          <p className="font-bold text-lg">{formatCurrency(totalBalance)}</p>
-        </Card>
+        {/* Total Balance — links to all bank accounts */}
+        <Link href="/banks">
+          <Card className="p-3 text-center hover:bg-muted/50 cursor-pointer transition-colors">
+            <Wallet className="w-6 h-6 mx-auto text-primary mb-1" />
+            <p className="text-xs text-muted-foreground">Total</p>
+            <p className="font-bold text-lg">{formatCurrency(totalBalance)}</p>
+            <p className="text-[10px] text-primary mt-0.5">Tap to view</p>
+          </Card>
+        </Link>
 
-        <Card className="p-3 text-center">
-          <TrendingUp className="w-6 h-6 mx-auto text-green-500 mb-1" />
-          <p className="text-xs text-muted-foreground">In Today</p>
-          <p className="font-bold text-lg text-green-600 dark:text-green-400">
-            {formatCurrency(todayIn)}
-          </p>
-        </Card>
+        {/* Today In — links to today's transactions filtered to Money In */}
+        <Link href="/transactions?filter=in&period=today">
+          <Card className="p-3 text-center hover:bg-muted/50 cursor-pointer transition-colors">
+            <TrendingUp className="w-6 h-6 mx-auto text-green-500 mb-1" />
+            <p className="text-xs text-muted-foreground">In Today</p>
+            <p className="font-bold text-lg text-green-600 dark:text-green-400">
+              {formatCurrency(todayIn)}
+            </p>
+            <p className="text-[10px] text-green-600 mt-0.5">Tap to view</p>
+          </Card>
+        </Link>
 
-        <Card className="p-3 text-center">
-          <TrendingDown className="w-6 h-6 mx-auto text-red-500 mb-1" />
-          <p className="text-xs text-muted-foreground">Out Today</p>
-          <p className="font-bold text-lg text-red-600 dark:text-red-400">
-            {formatCurrency(todayOut)}
-          </p>
-        </Card>
+        {/* Today Out — links to today's transactions filtered to Money Out */}
+        <Link href="/transactions?filter=out&period=today">
+          <Card className="p-3 text-center hover:bg-muted/50 cursor-pointer transition-colors">
+            <TrendingDown className="w-6 h-6 mx-auto text-red-500 mb-1" />
+            <p className="text-xs text-muted-foreground">Out Today</p>
+            <p className="font-bold text-lg text-red-600 dark:text-red-400">
+              {formatCurrency(todayOut)}
+            </p>
+            <p className="text-[10px] text-red-600 mt-0.5">Tap to view</p>
+          </Card>
+        </Link>
       </div>
 
       <Card>

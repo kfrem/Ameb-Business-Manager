@@ -123,55 +123,57 @@ export default function BankAccountDetail() {
           ) : (
             <div className="space-y-2">
               {transactions.map((tx: any) => (
-                <Card key={tx.id} className="hover-elevate cursor-pointer">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center",
-                        tx.direction === 'in'
-                          ? "bg-green-100 dark:bg-green-900/30"
-                          : "bg-red-100 dark:bg-red-900/30"
-                      )}>
-                        {tx.direction === 'in' ? (
-                          <ArrowDownLeft className="w-5 h-5 text-green-600" />
-                        ) : (
-                          <ArrowUpRight className="w-5 h-5 text-red-600" />
-                        )}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium truncate">
-                            {tx.counterparty || tx.subcategory || 'Transaction'}
-                          </p>
-                          {tx.reference && (
-                            <Badge variant="outline" className="text-xs">
-                              <Hash className="w-3 h-3 mr-1" />
-                              {tx.reference}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                          <Calendar className="w-3 h-3" />
-                          <span>{formatDate(tx.date)}</span>
-                          {tx.notes && (
-                            <span className="truncate">• {tx.notes}</span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <p className={cn(
-                          "font-semibold",
-                          tx.direction === 'in' ? "text-green-600" : "text-red-600"
+                <Link key={tx.id} href={`/transaction/${tx.id}`}>
+                  <Card className="hover-elevate cursor-pointer transition-colors hover:bg-muted/30">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-10 h-10 rounded-full flex items-center justify-center",
+                          tx.direction === 'in'
+                            ? "bg-green-100 dark:bg-green-900/30"
+                            : "bg-red-100 dark:bg-red-900/30"
                         )}>
-                          {tx.direction === 'in' ? '+' : '-'}
-                          {formatCurrency(parseFloat(tx.amount), tx.currency)}
-                        </p>
+                          {tx.direction === 'in' ? (
+                            <ArrowDownLeft className="w-5 h-5 text-green-600" />
+                          ) : (
+                            <ArrowUpRight className="w-5 h-5 text-red-600" />
+                          )}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium truncate">
+                              {tx.counterparty || tx.subcategory || 'Transaction'}
+                            </p>
+                            {tx.reference && (
+                              <Badge variant="outline" className="text-xs">
+                                <Hash className="w-3 h-3 mr-1" />
+                                {tx.reference}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                            <Calendar className="w-3 h-3" />
+                            <span>{formatDate(tx.date)}</span>
+                            {tx.notes && (
+                              <span className="truncate">• {tx.notes}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <p className={cn(
+                            "font-semibold",
+                            tx.direction === 'in' ? "text-green-600" : "text-red-600"
+                          )}>
+                            {tx.direction === 'in' ? '+' : '-'}
+                            {formatCurrency(parseFloat(tx.amount), tx.currency)}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </Link>
               ))}
             </div>
           )}
