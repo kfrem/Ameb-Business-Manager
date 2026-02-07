@@ -452,22 +452,52 @@ export async function registerRoutes(
 
   app.post("/api/transactions", canWrite, async (req, res) => {
     try {
-      const validatedData = insertLedgerTransactionSchema.parse(req.body);
-      
+      const { amount, currency, direction, businessId, bankAccountId, categoryId,
+              counterparty, notes, createdBy, customerId, supplierId, incomeSource,
+              assetId, subcategory, reference } = req.body;
+
+      // Validate required fields
+      if (!amount || !direction || !businessId) {
+        return res.status(400).json({ error: "amount, direction, and businessId are required" });
+      }
+      if (!['in', 'out'].includes(direction)) {
+        return res.status(400).json({ error: "direction must be 'in' or 'out'" });
+      }
+
       // Check business access for non-owner/admin
       if (!['owner', 'admin'].includes(req.user.role)) {
-        const hasAccess = await checkBusinessAccess(req.user.id, validatedData.businessId);
+        const hasAccess = await checkBusinessAccess(req.user.id, businessId);
         if (!hasAccess) {
           return res.status(403).json({ error: "No access to this business" });
         }
       }
-      
-      const transaction = await storage.createTransaction(validatedData);
+
+      const txData: any = {
+        amount: String(amount),
+        currency: currency || 'GHS',
+        direction,
+        businessId,
+        date: new Date(),
+        status: 'posted',
+        reconciled: false,
+      };
+
+      // Add optional fields only if provided
+      if (bankAccountId) txData.bankAccountId = bankAccountId;
+      if (categoryId) txData.categoryId = categoryId;
+      if (counterparty) txData.counterparty = counterparty;
+      if (notes) txData.notes = notes;
+      if (createdBy) txData.createdBy = createdBy;
+      if (customerId) txData.customerId = customerId;
+      if (supplierId) txData.supplierId = supplierId;
+      if (incomeSource) txData.incomeSource = incomeSource;
+      if (assetId) txData.assetId = assetId;
+      if (subcategory) txData.subcategory = subcategory;
+      if (reference) txData.reference = reference;
+
+      const transaction = await storage.createTransaction(txData);
       res.status(201).json(transaction);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Validation failed", details: error.errors });
-      }
       console.error("Create transaction error:", error);
       const errMsg = error instanceof Error ? error.message : "Failed to create transaction";
       res.status(500).json({ error: errMsg });
