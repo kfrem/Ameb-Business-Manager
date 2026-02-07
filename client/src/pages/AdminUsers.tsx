@@ -44,8 +44,20 @@ export default function AdminUsers() {
     queryKey: ['/api/users'],
   });
 
-  const { data: businesses } = useQuery<any[]>({
-    queryKey: ['/api/businesses'],
+  // Fetch ALL businesses (admin endpoint) so owner can assign any business to any user
+  const { data: allBusinesses } = useQuery<any[]>({
+    queryKey: ['/api/admin/businesses'],
+  });
+
+  // Fetch selected user's current business access when dialog opens
+  const { data: userBusinesses, refetch: refetchUserBusinesses } = useQuery<any[]>({
+    queryKey: ['/api/user-businesses', selectedUser?.id],
+    queryFn: async () => {
+      if (!selectedUser?.id) return [];
+      const res = await apiRequest('GET', `/api/users/${selectedUser.id}/businesses`);
+      return res.json();
+    },
+    enabled: !!selectedUser?.id && isAssignOpen,
   });
 
   const createUserMutation = useMutation({
@@ -85,10 +97,25 @@ export default function AdminUsers() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user-businesses', selectedUser?.id] });
       toast({ title: 'Business access granted' });
     },
     onError: (error: any) => {
       toast({ title: error.message || 'Failed to grant access', variant: 'destructive' });
+    },
+  });
+
+  const revokeBusinessMutation = useMutation({
+    mutationFn: async ({ userId, businessId }: { userId: string; businessId: string }) => {
+      await apiRequest('DELETE', `/api/users/${userId}/businesses/${businessId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user-businesses', selectedUser?.id] });
+      toast({ title: 'Business access revoked' });
+    },
+    onError: (error: any) => {
+      toast({ title: error.message || 'Failed to revoke access', variant: 'destructive' });
     },
   });
 
@@ -332,34 +359,63 @@ export default function AdminUsers() {
         <Dialog open={isAssignOpen} onOpenChange={setIsAssignOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Assign Business Access - {selectedUser?.name}</DialogTitle>
+              <DialogTitle>Business Access — {selectedUser?.name}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-3 py-4">
               <p className="text-sm text-muted-foreground">
-                Select businesses this user can access:
+                Toggle which businesses this user can access:
               </p>
-              {businesses?.map((business: any) => (
-                <div
-                  key={business.id}
-                  className="flex items-center justify-between p-3 border rounded-lg"
-                >
-                  <div>
-                    <p className="font-medium">{business.name}</p>
-                    <p className="text-xs text-muted-foreground capitalize">{business.type.replace('_', ' ')}</p>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      assignBusinessMutation.mutate({
-                        userId: selectedUser.id,
-                        businessId: business.id,
-                      });
-                    }}
+              {allBusinesses?.map((business: any) => {
+                const hasAccess = userBusinesses?.some((ub: any) => ub.id === business.id);
+                const isPending = assignBusinessMutation.isPending || revokeBusinessMutation.isPending;
+                return (
+                  <div
+                    key={business.id}
+                    className={`flex items-center justify-between p-3 border rounded-lg ${
+                      hasAccess ? 'border-green-500/50 bg-green-50 dark:bg-green-950/20' : ''
+                    }`}
                   >
-                    <Check className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
+                    <div className="flex-1">
+                      <p className="font-medium">{business.name}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{business.type?.replace('_', ' ')}</p>
+                    </div>
+                    {hasAccess ? (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        disabled={isPending}
+                        onClick={() => {
+                          revokeBusinessMutation.mutate({
+                            userId: selectedUser.id,
+                            businessId: business.id,
+                          });
+                        }}
+                      >
+                        <X className="w-4 h-4 mr-1" /> Revoke
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        disabled={isPending}
+                        onClick={() => {
+                          assignBusinessMutation.mutate({
+                            userId: selectedUser.id,
+                            businessId: business.id,
+                          });
+                        }}
+                      >
+                        <Check className="w-4 h-4 mr-1" /> Grant
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+              {(!allBusinesses || allBusinesses.length === 0) && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No businesses found. Create businesses first.
+                </p>
+              )}
             </div>
           </DialogContent>
         </Dialog>
