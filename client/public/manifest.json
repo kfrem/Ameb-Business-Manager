@@ -1,6 +1,6 @@
 {
-  "name": "AMEB Business Manager",
-  "short_name": "AMEB",
+  "name": "AMT Business Manager",
+  "short_name": "AMT",
   "description": "Business Management App for Ghana",
   "start_url": "/",
   "display": "standalone",

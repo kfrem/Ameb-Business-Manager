@@ -50,7 +50,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <Header title="AMEB" />
+      <Header title="AMT" />
 
       <main className="p-4 space-y-6 max-w-2xl mx-auto">
         {isOwner && pendingApprovals.length > 0 && (
@@ -92,7 +92,7 @@ export default function Dashboard() {
                   <Briefcase className="w-8 h-8 text-primary" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold">Welcome to AMEB!</h3>
+                  <h3 className="text-lg font-semibold">Welcome to AMT!</h3>
                   <p className="text-muted-foreground mt-1">
                     You don't have any businesses yet.<br />
                     Contact the administrator to get started.

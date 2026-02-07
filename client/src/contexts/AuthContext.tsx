@@ -34,8 +34,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('ameb_user');
-    const savedBusiness = localStorage.getItem('ameb_business');
+    const savedUser = localStorage.getItem('amt_user');
+    const savedBusiness = localStorage.getItem('amt_business');
     if (savedUser) {
       const user = JSON.parse(savedUser);
       const business = savedBusiness ? JSON.parse(savedBusiness) : null;
@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       if (res.ok) {
         const { user, businesses } = await res.json();
-        localStorage.setItem('ameb_user', JSON.stringify(user));
+        localStorage.setItem('amt_user', JSON.stringify(user));
         setState(prev => ({
           ...prev,
           user,
@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (res.ok) {
         const { user, businesses } = data;
-        localStorage.setItem('ameb_user', JSON.stringify(user));
+        localStorage.setItem('amt_user', JSON.stringify(user));
         setState(prev => ({
           ...prev,
           user,
@@ -119,8 +119,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    localStorage.removeItem('ameb_user');
-    localStorage.removeItem('ameb_business');
+    localStorage.removeItem('amt_user');
+    localStorage.removeItem('amt_business');
     setState({
       user: null,
       businesses: [],
@@ -132,15 +132,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const setCurrentBusiness = (business: Business | null) => {
     if (business) {
-      localStorage.setItem('ameb_business', JSON.stringify(business));
+      localStorage.setItem('amt_business', JSON.stringify(business));
     } else {
-      localStorage.removeItem('ameb_business');
+      localStorage.removeItem('amt_business');
     }
     setState(prev => ({ ...prev, currentBusiness: business }));
   };
 
   const refreshUser = async () => {
-    const savedUser = localStorage.getItem('ameb_user');
+    const savedUser = localStorage.getItem('amt_user');
     if (!savedUser) return;
 
     try {
@@ -153,7 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       if (res.ok) {
         const { user, businesses } = await res.json();
-        localStorage.setItem('ameb_user', JSON.stringify(user));
+        localStorage.setItem('amt_user', JSON.stringify(user));
         setState(prev => ({
           ...prev,
           user,

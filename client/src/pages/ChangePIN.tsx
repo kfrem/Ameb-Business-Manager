@@ -194,7 +194,7 @@ export default function ChangePIN() {
       </div>
 
       <div className="p-4 text-center text-white/70 text-sm">
-        AMEB Business Manager v1.0
+        AMT Business Manager v1.0
       </div>
     </div>
   );

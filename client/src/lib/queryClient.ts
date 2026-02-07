@@ -8,7 +8,7 @@ async function throwIfResNotOk(res: Response) {
 }
 
 function getUserId(): string | null {
-  const savedUser = localStorage.getItem('ameb_user');
+  const savedUser = localStorage.getItem('amt_user');
   if (savedUser) {
     try {
       const user = JSON.parse(savedUser);

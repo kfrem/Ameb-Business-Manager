@@ -37,7 +37,7 @@ function ProtectedRoutes() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-primary">
         <div className="text-center text-white">
-          <h1 className="text-4xl font-bold mb-2">AMEB</h1>
+          <h1 className="text-4xl font-bold mb-2">AMT</h1>
           <p className="opacity-80">Loading...</p>
         </div>
       </div>

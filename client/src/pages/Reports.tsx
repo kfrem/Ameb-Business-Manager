@@ -26,7 +26,7 @@ export default function Reports() {
     queryFn: async () => {
       const params = new URLSearchParams({ month: selectedMonth });
       if (selectedBusiness !== 'all') params.set('business', selectedBusiness);
-      const savedUser = localStorage.getItem('ameb_user');
+      const savedUser = localStorage.getItem('amt_user');
       const userId = savedUser ? JSON.parse(savedUser).id : null;
       const headers: Record<string, string> = {};
       if (userId) headers['X-User-Id'] = userId;
