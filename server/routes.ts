@@ -469,7 +469,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       console.error("Create transaction error:", error);
-      res.status(500).json({ error: "Failed to create transaction" });
+      const errMsg = error instanceof Error ? error.message : "Failed to create transaction";
+      res.status(500).json({ error: errMsg });
     }
   });
 

@@ -19,6 +19,7 @@ import AdminUsers from "@/pages/AdminUsers";
 import ChangePIN from "@/pages/ChangePIN";
 import BankAccountDetail from "@/pages/BankAccountDetail";
 import NotFound from "@/pages/not-found";
+import { OfflineBanner } from "@/components/layout/OfflineBanner";
 
 function AuthRoutes() {
   return (
@@ -76,6 +77,7 @@ function App() {
       <ThemeProvider>
         <AuthProvider>
           <TooltipProvider>
+            <OfflineBanner />
             <ProtectedRoutes />
             <Toaster />
           </TooltipProvider>

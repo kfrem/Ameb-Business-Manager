@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { cn } from '@/lib/utils';
+import { isOnline, addToOfflineQueue } from '@/lib/offlineQueue';
 
 type Direction = 'in' | 'out';
 
@@ -46,8 +47,15 @@ export default function NewEntry() {
       toast({ title: 'Transaction saved!' });
       setLocation('/');
     },
-    onError: () => {
-      toast({ title: 'Failed to save', variant: 'destructive' });
+    onError: (_error: any, variables: any) => {
+      // If network error, save offline automatically
+      if (!isOnline()) {
+        addToOfflineQueue(variables);
+        toast({ title: 'Saved offline — will sync when back online' });
+        setLocation('/');
+      } else {
+        toast({ title: 'Failed to save', variant: 'destructive' });
+      }
     },
   });
 
@@ -57,7 +65,7 @@ export default function NewEntry() {
       return;
     }
 
-    createTransaction.mutate({
+    const txData = {
       amount: amount,
       currency,
       direction,
@@ -67,7 +75,17 @@ export default function NewEntry() {
       counterparty: counterparty || undefined,
       notes: notes || undefined,
       createdBy: user?.id,
-    });
+    };
+
+    // If offline, save locally and navigate back
+    if (!isOnline()) {
+      addToOfflineQueue(txData);
+      toast({ title: 'Saved offline — will sync when back online' });
+      setLocation('/');
+      return;
+    }
+
+    createTransaction.mutate(txData);
   };
 
   const selectedBusiness = businesses?.find((b: any) => b.id === businessId);
