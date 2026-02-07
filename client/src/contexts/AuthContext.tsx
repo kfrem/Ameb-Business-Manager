@@ -34,6 +34,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
+    // Migrate old localStorage keys from ameb_ to amt_
+    const oldUser = localStorage.getItem('ameb_user');
+    const oldBusiness = localStorage.getItem('ameb_business');
+    const oldTheme = localStorage.getItem('ameb_theme');
+    if (oldUser) {
+      localStorage.setItem('amt_user', oldUser);
+      localStorage.removeItem('ameb_user');
+    }
+    if (oldBusiness) {
+      localStorage.setItem('amt_business', oldBusiness);
+      localStorage.removeItem('ameb_business');
+    }
+    if (oldTheme) {
+      localStorage.setItem('amt_theme', oldTheme);
+      localStorage.removeItem('ameb_theme');
+    }
+
     const savedUser = localStorage.getItem('amt_user');
     const savedBusiness = localStorage.getItem('amt_business');
     if (savedUser) {
