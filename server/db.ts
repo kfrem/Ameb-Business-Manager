@@ -33,6 +33,56 @@ export async function runMigrations() {
         END $$;
       `);
     }
+    // Add missing columns to ledger_transactions table
+    const missingColumns = [
+      { name: 'customer_id', type: 'VARCHAR(36)' },
+      { name: 'supplier_id', type: 'VARCHAR(36)' },
+      { name: 'income_source', type: 'TEXT' },
+      { name: 'asset_id', type: 'VARCHAR(36)' },
+      { name: 'subcategory', type: 'TEXT' },
+      { name: 'last_edited_by', type: 'VARCHAR(36)' },
+      { name: 'last_edited_at', type: 'TIMESTAMP' },
+    ];
+    for (const col of missingColumns) {
+      await client.query(`
+        DO $$ BEGIN
+          ALTER TABLE ledger_transactions ADD COLUMN IF NOT EXISTS ${col.name} ${col.type};
+        EXCEPTION
+          WHEN duplicate_column THEN NULL;
+        END $$;
+      `);
+    }
+
+    // Add missing tables: customers, suppliers
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS customers (
+        id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
+        business_id VARCHAR(36) REFERENCES businesses(id),
+        name TEXT NOT NULL,
+        phone VARCHAR(20),
+        email TEXT,
+        address TEXT,
+        notes TEXT,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS suppliers (
+        id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
+        business_id VARCHAR(36) REFERENCES businesses(id),
+        name TEXT NOT NULL,
+        phone VARCHAR(20),
+        email TEXT,
+        address TEXT,
+        category TEXT,
+        notes TEXT,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+    `);
+
     console.log('Database migrations completed');
   } catch (error: any) {
     console.log('Migration note:', error?.message || 'already up to date');
