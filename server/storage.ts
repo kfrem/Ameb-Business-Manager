@@ -122,11 +122,13 @@ export interface IStorage {
   getCustomersByBusiness(businessId: string): Promise<Customer[]>;
   getAllCustomers(): Promise<Customer[]>;
   createCustomer(customer: InsertCustomer): Promise<Customer>;
+  updateCustomer(id: string, updates: Partial<InsertCustomer>): Promise<Customer | undefined>;
 
   // Suppliers
   getSuppliersByBusiness(businessId: string): Promise<Supplier[]>;
   getAllSuppliers(): Promise<Supplier[]>;
   createSupplier(supplier: InsertSupplier): Promise<Supplier>;
+  updateSupplier(id: string, updates: Partial<InsertSupplier>): Promise<Supplier | undefined>;
 
   // Today's transactions
   getTodayTransactions(): Promise<LedgerTransaction[]>;
@@ -649,6 +651,11 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  async updateCustomer(id: string, updates: Partial<InsertCustomer>): Promise<Customer | undefined> {
+    const result = await db.update(customers).set(updates).where(eq(customers.id, id)).returning();
+    return result[0];
+  }
+
   // Suppliers
   async getSuppliersByBusiness(businessId: string): Promise<Supplier[]> {
     return db.select().from(suppliers)
@@ -662,6 +669,11 @@ export class DatabaseStorage implements IStorage {
 
   async createSupplier(supplier: InsertSupplier): Promise<Supplier> {
     const result = await db.insert(suppliers).values(supplier).returning();
+    return result[0];
+  }
+
+  async updateSupplier(id: string, updates: Partial<InsertSupplier>): Promise<Supplier | undefined> {
+    const result = await db.update(suppliers).set(updates).where(eq(suppliers.id, id)).returning();
     return result[0];
   }
 

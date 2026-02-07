@@ -91,24 +91,29 @@ export async function seedDatabase() {
   // Create Categories
   console.log('Creating categories...');
   const createdCategories = await db.insert(categories).values([
-    // Machinery categories
-    { name: 'Purchase', businessType: 'machinery', isDefault: true },
-    { name: 'Shipping', businessType: 'machinery', isDefault: true },
-    { name: 'Clearing', businessType: 'machinery', isDefault: true },
-    { name: 'Transport', businessType: 'machinery', isDefault: true },
-    { name: 'Storage', businessType: 'machinery', isDefault: true },
+    // Machinery categories (expenses - money out)
+    { name: 'Purchase', businessType: 'machinery', direction: 'out', isDefault: true },
+    { name: 'Shipping', businessType: 'machinery', direction: 'out', isDefault: true },
+    { name: 'Clearing', businessType: 'machinery', direction: 'out', isDefault: true },
+    { name: 'Transport', businessType: 'machinery', direction: 'out', isDefault: true },
+    { name: 'Storage', businessType: 'machinery', direction: 'out', isDefault: true },
     // Gold categories
-    { name: 'Agent Funding', businessType: 'gold_agent', isDefault: true },
-    { name: 'Gold Purchase', businessType: 'gold_owner', isDefault: true },
-    { name: 'Gold Sale', businessType: 'gold_agent', isDefault: true },
-    // General categories
-    { name: 'Salaries/Wages', isDefault: true },
-    { name: 'Taxes/Levies', isDefault: true },
-    { name: 'Fuel/Transport', isDefault: true },
-    { name: 'Utilities', isDefault: true },
-    { name: 'Maintenance', isDefault: true },
-    { name: 'Sales Revenue', isDefault: true },
-    { name: 'Lease Payment', isDefault: true },
+    { name: 'Agent Funding', businessType: 'gold_agent', direction: 'out', isDefault: true },
+    { name: 'Gold Purchase', businessType: 'gold_owner', direction: 'out', isDefault: true },
+    { name: 'Gold Sale', businessType: 'gold_agent', direction: 'in', isDefault: true },
+    // General expense categories (money out only)
+    { name: 'Salaries/Wages', direction: 'out', isDefault: true },
+    { name: 'Taxes/Levies', direction: 'out', isDefault: true },
+    { name: 'Fuel/Transport', direction: 'out', isDefault: true },
+    { name: 'Utilities', direction: 'out', isDefault: true },
+    { name: 'Maintenance', direction: 'out', isDefault: true },
+    // General income categories (money in only)
+    { name: 'Sales Revenue', direction: 'in', isDefault: true },
+    { name: 'Lease Payment', direction: 'in', isDefault: true },
+    { name: 'Customer Payment', direction: 'in', isDefault: true },
+    { name: 'Refund Received', direction: 'in', isDefault: true },
+    { name: 'Loan Received', direction: 'in', isDefault: true },
+    { name: 'Owner Injection', direction: 'in', isDefault: true },
   ]).returning();
 
   const getCategoryId = (name: string) => createdCategories.find(c => c.name === name)?.id;

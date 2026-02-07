@@ -83,6 +83,44 @@ export async function runMigrations() {
       );
     `);
 
+    // Add category_direction enum and direction column to categories
+    await client.query(`
+      DO $$ BEGIN
+        CREATE TYPE category_direction AS ENUM ('in', 'out', 'both');
+      EXCEPTION
+        WHEN duplicate_object THEN NULL;
+      END $$;
+    `);
+    await client.query(`
+      DO $$ BEGIN
+        ALTER TABLE categories ADD COLUMN IF NOT EXISTS direction category_direction NOT NULL DEFAULT 'both';
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END $$;
+    `);
+
+    // Set proper directions on existing categories (income vs expense)
+    // Income categories (Money In only)
+    await client.query(`
+      UPDATE categories SET direction = 'in'
+      WHERE direction = 'both' AND name IN (
+        'Sales Revenue', 'Lease Payment', 'Gold Sale', 'Loan Received',
+        'Owner Injection', 'Interest Income', 'Refund Received',
+        'Credit Payment Received', 'Customer Payment'
+      );
+    `);
+    // Expense categories (Money Out only)
+    await client.query(`
+      UPDATE categories SET direction = 'out'
+      WHERE direction = 'both' AND name IN (
+        'Purchase', 'Shipping', 'Clearing', 'Transport', 'Storage',
+        'Agent Funding', 'Gold Purchase',
+        'Salaries/Wages', 'Taxes/Levies', 'Fuel/Transport', 'Utilities', 'Maintenance',
+        'Rent', 'Insurance', 'Office Supplies', 'Professional Fees',
+        'Loan Repayment', 'Equipment Repair'
+      );
+    `);
+
     console.log('Database migrations completed');
   } catch (error: any) {
     console.log('Migration note:', error?.message || 'already up to date');

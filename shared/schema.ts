@@ -61,11 +61,15 @@ export const bankAccounts = pgTable("bank_accounts", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Category direction: controls which transaction direction a category appears for
+export const categoryDirectionEnum = pgEnum('category_direction', ['in', 'out', 'both']);
+
 // Categories table
 export const categories = pgTable("categories", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   businessType: businessTypeEnum("business_type"),
+  direction: categoryDirectionEnum("direction").notNull().default('both'),
   isDefault: boolean("is_default").notNull().default(false),
 });
 

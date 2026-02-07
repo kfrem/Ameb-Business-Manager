@@ -652,6 +652,34 @@ export async function registerRoutes(
     }
   });
 
+  // Create a new business (Owner only)
+  app.post("/api/businesses", ownerOnly, async (req, res) => {
+    try {
+      const { name, type, location } = req.body;
+      if (!name || typeof name !== 'string' || name.length < 2) {
+        return res.status(400).json({ error: "Business name is required (2+ characters)" });
+      }
+      if (!type || !['machinery', 'gold_agent', 'gold_owner', 'spare_parts', 'fuel'].includes(type)) {
+        return res.status(400).json({ error: "Valid business type is required" });
+      }
+
+      const business = await storage.createBusiness({
+        name,
+        type,
+        location: location || null,
+        isActive: true,
+      });
+
+      // Auto-assign the creating owner access to this business
+      await storage.addUserBusinessAccess(req.user.id, business.id);
+
+      res.status(201).json(business);
+    } catch (error) {
+      console.error("Create business error:", error);
+      res.status(500).json({ error: "Failed to create business" });
+    }
+  });
+
   // Admin: Get ALL businesses (for assigning to users)
   app.get("/api/admin/businesses", ownerOrAdmin, async (req, res) => {
     try {
@@ -700,6 +728,42 @@ export async function registerRoutes(
     }
   });
 
+  // Update customer
+  app.patch("/api/customers/:id", canWrite, async (req, res) => {
+    try {
+      const { name, phone, email, address, notes, isActive } = req.body;
+      const updates: any = {};
+      if (name !== undefined) updates.name = name;
+      if (phone !== undefined) updates.phone = phone;
+      if (email !== undefined) updates.email = email;
+      if (address !== undefined) updates.address = address;
+      if (notes !== undefined) updates.notes = notes;
+      if (isActive !== undefined) updates.isActive = isActive;
+
+      const customer = await storage.updateCustomer(req.params.id, updates);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+      res.json(customer);
+    } catch (error) {
+      console.error("Update customer error:", error);
+      res.status(500).json({ error: "Failed to update customer" });
+    }
+  });
+
+  // Soft-delete customer
+  app.delete("/api/customers/:id", canWrite, async (req, res) => {
+    try {
+      const customer = await storage.updateCustomer(req.params.id, { isActive: false });
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete customer" });
+    }
+  });
+
   // Suppliers routes
   app.get("/api/suppliers", async (req, res) => {
     try {
@@ -739,6 +803,43 @@ export async function registerRoutes(
     }
   });
 
+  // Update supplier
+  app.patch("/api/suppliers/:id", canWrite, async (req, res) => {
+    try {
+      const { name, phone, email, address, category, notes, isActive } = req.body;
+      const updates: any = {};
+      if (name !== undefined) updates.name = name;
+      if (phone !== undefined) updates.phone = phone;
+      if (email !== undefined) updates.email = email;
+      if (address !== undefined) updates.address = address;
+      if (category !== undefined) updates.category = category;
+      if (notes !== undefined) updates.notes = notes;
+      if (isActive !== undefined) updates.isActive = isActive;
+
+      const supplier = await storage.updateSupplier(req.params.id, updates);
+      if (!supplier) {
+        return res.status(404).json({ error: "Supplier not found" });
+      }
+      res.json(supplier);
+    } catch (error) {
+      console.error("Update supplier error:", error);
+      res.status(500).json({ error: "Failed to update supplier" });
+    }
+  });
+
+  // Soft-delete supplier
+  app.delete("/api/suppliers/:id", canWrite, async (req, res) => {
+    try {
+      const supplier = await storage.updateSupplier(req.params.id, { isActive: false });
+      if (!supplier) {
+        return res.status(404).json({ error: "Supplier not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete supplier" });
+    }
+  });
+
   // Today's transactions (for money overview drill-down)
   app.get("/api/transactions/today", async (req, res) => {
     try {
@@ -759,49 +860,18 @@ export async function registerRoutes(
     }
   });
 
-  // Categories with direction filtering
+  // Categories with direction filtering (uses DB direction field)
   app.get("/api/categories/by-direction", async (req, res) => {
     try {
       const { direction } = req.query;
       const allCategories = await storage.getAllCategories();
 
-      // Define which categories belong to which direction
-      const expenseCategories = [
-        'Cost of Goods', 'Salaries', 'Rent', 'Utilities', 'Transport',
-        'Fuel', 'Maintenance', 'Supplies', 'Insurance', 'Taxes',
-        'Marketing', 'Professional Fees', 'Bank Charges', 'Clearing',
-        'Shipping', 'Storage', 'Purchase', 'Other Expense'
-      ];
-
-      const incomeCategories = [
-        'Sales', 'Revenue', 'Service Income', 'Rental Income', 'Commission',
-        'Interest Income', 'Other Income'
-      ];
-
-      const incomeSources = [
-        { id: 'loan', name: 'Loan Received', isIncomeSource: true },
-        { id: 'overdraft', name: 'Bank Overdraft', isIncomeSource: true },
-        { id: 'owner_injection', name: 'Owner Capital Injection', isIncomeSource: true },
-        { id: 'friend_borrowing', name: 'Friend/Family Borrowing', isIncomeSource: true },
-        { id: 'refund', name: 'Refund Received', isIncomeSource: true },
-      ];
-
-      if (direction === 'out') {
-        // For money out, show only expense categories
+      if (direction === 'in' || direction === 'out') {
+        // Show categories that match the direction OR are marked 'both'
         const filtered = allCategories.filter((c: any) =>
-          expenseCategories.some(ec => c.name.toLowerCase().includes(ec.toLowerCase()))
-          || !incomeCategories.some(ic => c.name.toLowerCase().includes(ic.toLowerCase()))
+          c.direction === direction || c.direction === 'both'
         );
         res.json(filtered);
-      } else if (direction === 'in') {
-        // For money in, show income categories plus income sources
-        const filtered = allCategories.filter((c: any) =>
-          incomeCategories.some(ic => c.name.toLowerCase().includes(ic.toLowerCase()))
-          || !expenseCategories.some(ec => c.name.toLowerCase().includes(ec.toLowerCase()))
-        );
-        // Add income sources as special categories
-        const withSources = [...filtered, ...incomeSources];
-        res.json(withSources);
       } else {
         res.json(allCategories);
       }
