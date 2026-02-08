@@ -111,6 +111,7 @@ export interface IStorage {
   getDashboardData(): Promise<any>;
   getBusinessKPIs(businessId: string): Promise<any>;
   getReportData(month: string, businessId?: string): Promise<any>;
+  getHealthDashboardData(userBusinessIds: string[]): Promise<any>;
 
   // Bank account transactions
   getTransactionsByBankAccount(bankAccountId: string): Promise<LedgerTransaction[]>;
@@ -609,6 +610,184 @@ export class DatabaseStorage implements IStorage {
       profit: totalRevenue - totalExpenses,
       categoryBreakdown,
       businessBreakdown,
+    };
+  }
+
+  // Health Dashboard Data
+  async getHealthDashboardData(userBusinessIds: string[]): Promise<any> {
+    const allTransactions = await this.getAllTransactions();
+    const allBusinesses = await this.getAllBusinesses();
+    const allBankAccounts = await this.getAllBankAccounts();
+    const allCategories = await this.getAllCategories();
+    const alerts = await this.getUnreadAlerts();
+
+    // Filter to user's businesses
+    const userBusinesses = allBusinesses.filter(b => userBusinessIds.includes(b.id));
+    const userTransactions = allTransactions.filter(t => userBusinessIds.includes(t.businessId));
+
+    // === MONTHLY TREND (last 6 months) ===
+    const now = new Date();
+    const monthlyTrend = [];
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const fullMonthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+      const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+
+      const monthTxns = userTransactions.filter(t => {
+        const td = new Date(t.date);
+        return td >= monthStart && td <= monthEnd;
+      });
+
+      const revenue = monthTxns.filter(t => t.direction === 'in').reduce((s, t) => s + parseFloat(t.amount), 0);
+      const expenses = monthTxns.filter(t => t.direction === 'out').reduce((s, t) => s + parseFloat(t.amount), 0);
+
+      monthlyTrend.push({
+        month: monthNames[d.getMonth()],
+        monthFull: `${fullMonthNames[d.getMonth()]} ${d.getFullYear()}`,
+        revenue,
+        expenses,
+        profit: revenue - expenses,
+      });
+    }
+
+    // === CURRENT & LAST MONTH ===
+    const currentMonth = monthlyTrend[monthlyTrend.length - 1];
+    const lastMonth = monthlyTrend[monthlyTrend.length - 2] || { revenue: 0, expenses: 0, profit: 0 };
+
+    // === CATEGORY BREAKDOWN (current month expenses) ===
+    const categoryMap = new Map(allCategories.map(c => [c.id, c.name]));
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const currentMonthTxns = userTransactions.filter(t => new Date(t.date) >= currentMonthStart);
+
+    const expensesByCategory = currentMonthTxns
+      .filter(t => t.direction === 'out' && t.categoryId)
+      .reduce((acc, t) => {
+        const catName = categoryMap.get(t.categoryId!) || 'Other';
+        acc[catName] = (acc[catName] || 0) + parseFloat(t.amount);
+        return acc;
+      }, {} as Record<string, number>);
+    const categoryBreakdown = Object.entries(expensesByCategory)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+
+    // === BUSINESS COMPARISON ===
+    const businessComparison = userBusinesses.map(biz => {
+      const bizTxns = userTransactions.filter(t => t.businessId === biz.id);
+      const rev = bizTxns.filter(t => t.direction === 'in').reduce((s, t) => s + parseFloat(t.amount), 0);
+      const exp = bizTxns.filter(t => t.direction === 'out').reduce((s, t) => s + parseFloat(t.amount), 0);
+      return { name: biz.name, id: biz.id, revenue: rev, expenses: exp, profit: rev - exp };
+    }).sort((a, b) => b.profit - a.profit);
+
+    // === CASH POSITION ===
+    const bankAccounts = allBankAccounts.map(b => ({
+      name: `${b.bankName} - ${b.accountRef}`,
+      id: b.id,
+      balance: parseFloat(b.currentBalance || '0'),
+      currency: b.currency,
+    }));
+    const totalCash = bankAccounts.reduce((s, b) => s + b.balance, 0);
+
+    // === ALERTS CALCULATION ===
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayTxns = userTransactions.filter(t => new Date(t.date) >= today);
+    const todayIn = todayTxns.filter(t => t.direction === 'in').reduce((s, t) => s + parseFloat(t.amount), 0);
+    const todayOut = todayTxns.filter(t => t.direction === 'out').reduce((s, t) => s + parseFloat(t.amount), 0);
+
+    // Receivables (from machinery leases)
+    let receivablesAmount = 0;
+    for (const biz of userBusinesses.filter(b => b.type === 'machinery')) {
+      const assets = await this.getMachineryAssetsByBusiness(biz.id);
+      for (const asset of assets) {
+        const contracts = await this.getLeaseContractsByAsset(asset.id);
+        for (const contract of contracts.filter(c => c.isActive)) {
+          const payments = await this.getLeasePaymentsByContract(contract.id);
+          receivablesAmount += payments
+            .filter(p => !p.isPaid)
+            .reduce((s, p) => s + parseFloat(p.amount), 0);
+        }
+      }
+    }
+
+    // Low stock count
+    let lowStockCount = 0;
+    for (const biz of userBusinesses.filter(b => b.type === 'spare_parts')) {
+      const items = await this.getInventoryItemsByBusiness(biz.id);
+      lowStockCount += items.filter(i => i.quantity <= (i.reorderLevel || 5)).length;
+    }
+
+    // Old assets count (>1 year)
+    let oldAssetCount = 0;
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    for (const biz of userBusinesses.filter(b => b.type === 'machinery')) {
+      const assets = await this.getMachineryAssetsByBusiness(biz.id);
+      oldAssetCount += assets.filter(a => new Date(a.createdAt) < oneYearAgo).length;
+    }
+
+    const unreadAlertCount = alerts.filter(a => userBusinessIds.includes(a.businessId || '')).length;
+
+    // === HEALTH SCORE CALCULATION ===
+    let healthScore = 0;
+    const totalRevAll = userTransactions.filter(t => t.direction === 'in').reduce((s, t) => s + parseFloat(t.amount), 0);
+    const totalExpAll = userTransactions.filter(t => t.direction === 'out').reduce((s, t) => s + parseFloat(t.amount), 0);
+    const profitMargin = totalRevAll > 0 ? ((totalRevAll - totalExpAll) / totalRevAll) * 100 : 0;
+
+    // Profit margin: up to 30 points
+    if (profitMargin > 10) healthScore += 30;
+    else if (profitMargin > 0) healthScore += 15;
+    else if (profitMargin === 0 && totalRevAll === 0) healthScore += 10; // new business, no data
+
+    // Cash flow positive today: up to 20 points
+    if (todayIn >= todayOut) healthScore += 20;
+    else if (todayIn > 0) healthScore += 10;
+    else healthScore += 5; // no transactions today is neutral
+
+    // No overdue receivables: up to 20 points
+    if (receivablesAmount <= 0) healthScore += 20;
+    else if (receivablesAmount < 5000) healthScore += 10;
+
+    // No low stock: up to 15 points
+    if (lowStockCount <= 0) healthScore += 15;
+    else if (lowStockCount <= 3) healthScore += 7;
+
+    // No unread alerts: up to 15 points
+    if (unreadAlertCount <= 0) healthScore += 15;
+    else if (unreadAlertCount <= 3) healthScore += 7;
+
+    // === RECENT TRANSACTIONS ===
+    const recentTransactions = userTransactions.slice(0, 5).map(t => ({
+      id: t.id,
+      direction: t.direction,
+      amount: parseFloat(t.amount),
+      currency: t.currency,
+      counterparty: t.counterparty,
+      notes: t.notes,
+      date: t.date,
+      businessId: t.businessId,
+    }));
+
+    return {
+      healthScore,
+      monthlyTrend,
+      currentMonth,
+      lastMonth,
+      categoryBreakdown,
+      businessComparison,
+      cashPosition: { total: totalCash, accounts: bankAccounts },
+      alerts: {
+        cashFlowPositive: todayIn >= todayOut,
+        todayIn,
+        todayOut,
+        receivablesAmount,
+        lowStockCount,
+        oldAssetCount,
+        unreadAlertCount,
+      },
+      recentTransactions,
     };
   }
 

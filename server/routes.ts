@@ -607,6 +607,37 @@ export async function registerRoutes(
     }
   });
 
+  // Health Dashboard route — the director's morning view
+  app.get("/api/reports/health", async (req, res) => {
+    try {
+      const userBusinesses = await storage.getUserBusinesses(req.user.id);
+      const userBusinessIds = userBusinesses.map(b => b.id);
+
+      if (userBusinessIds.length === 0) {
+        return res.json({
+          healthScore: 0,
+          monthlyTrend: [],
+          currentMonth: { revenue: 0, expenses: 0, profit: 0 },
+          lastMonth: { revenue: 0, expenses: 0, profit: 0 },
+          categoryBreakdown: [],
+          businessComparison: [],
+          cashPosition: { total: 0, accounts: [] },
+          alerts: {
+            cashFlowPositive: false, todayIn: 0, todayOut: 0,
+            receivablesAmount: 0, lowStockCount: 0, oldAssetCount: 0, unreadAlertCount: 0
+          },
+          recentTransactions: [],
+        });
+      }
+
+      const data = await storage.getHealthDashboardData(userBusinessIds);
+      res.json(data);
+    } catch (error) {
+      console.error("Health dashboard error:", error);
+      res.status(500).json({ error: "Failed to fetch health dashboard data" });
+    }
+  });
+
   // Reports routes - Owner/Admin/Auditor only
   app.get("/api/reports", async (req, res) => {
     try {
