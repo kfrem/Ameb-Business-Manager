@@ -21,6 +21,8 @@ import ChangePIN from "@/pages/ChangePIN";
 import BankAccountDetail from "@/pages/BankAccountDetail";
 import Customers from "@/pages/Customers";
 import Suppliers from "@/pages/Suppliers";
+import Stock from "@/pages/Stock";
+import StockDetail from "@/pages/StockDetail";
 import NotFound from "@/pages/not-found";
 import { OfflineBanner } from "@/components/layout/OfflineBanner";
 
@@ -70,6 +72,8 @@ function ProtectedRoutes() {
       <Route path="/reports" component={Reports} />
       <Route path="/customers" component={Customers} />
       <Route path="/suppliers" component={Suppliers} />
+      <Route path="/stock" component={Stock} />
+      <Route path="/stock/:type/:id" component={StockDetail} />
       <Route path="/admin/users" component={AdminUsers} />
       <Route path="/change-pin" component={ChangePIN} />
       <Route component={NotFound} />

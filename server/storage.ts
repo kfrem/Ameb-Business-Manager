@@ -86,6 +86,7 @@ export interface IStorage {
   createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem>;
   updateInventoryQuantity(id: string, quantityChange: number): Promise<void>;
   createInventoryMovement(movement: InsertInventoryMovement): Promise<InventoryMovement>;
+  getInventoryMovementsByItem(itemId: string): Promise<InventoryMovement[]>;
 
   // Fuel Summaries
   getFuelSummary(id: string): Promise<FuelSummary | undefined>;
@@ -361,6 +362,12 @@ export class DatabaseStorage implements IStorage {
     const qtyChange = movement.movementType === 'in' ? movement.quantity : -movement.quantity;
     await this.updateInventoryQuantity(movement.itemId, qtyChange);
     return result[0];
+  }
+
+  async getInventoryMovementsByItem(itemId: string): Promise<InventoryMovement[]> {
+    return db.select().from(inventoryMovements)
+      .where(eq(inventoryMovements.itemId, itemId))
+      .orderBy(desc(inventoryMovements.createdAt));
   }
 
   // Fuel Summaries

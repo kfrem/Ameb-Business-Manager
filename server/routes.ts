@@ -913,5 +913,177 @@ export async function registerRoutes(
     }
   });
 
+  // ======= UNIFIED STOCK / ASSETS ROUTES =======
+
+  // Get all stock across all businesses (unified view)
+  app.get("/api/stock", async (req, res) => {
+    try {
+      const userBusinesses = await storage.getUserBusinesses(req.user.id);
+      const allStock: any[] = [];
+
+      for (const biz of userBusinesses) {
+        // Machinery assets
+        if (biz.type === 'machinery') {
+          const assets = await storage.getMachineryAssetsByBusiness(biz.id);
+          for (const asset of assets) {
+            const costLines = await storage.getCostLinesByAsset(asset.id);
+            const totalCostFromLines = costLines.reduce((sum, cl) => sum + parseFloat(cl.amount), 0);
+            allStock.push({
+              id: asset.id,
+              stockType: 'machinery',
+              name: asset.assetType + (asset.serialNumber ? ` (${asset.serialNumber})` : ''),
+              businessId: biz.id,
+              businessName: biz.name,
+              status: asset.status,
+              location: asset.location,
+              purchasePrice: asset.purchasePrice ? parseFloat(asset.purchasePrice) : 0,
+              totalCost: totalCostFromLines || parseFloat(asset.totalCost || '0'),
+              salePrice: asset.salePrice ? parseFloat(asset.salePrice) : null,
+              serialNumber: asset.serialNumber,
+              chassisNumber: asset.chassisNumber,
+              quantity: 1,
+              createdAt: asset.createdAt,
+              ageInDays: Math.floor((Date.now() - new Date(asset.createdAt).getTime()) / (1000 * 60 * 60 * 24)),
+            });
+          }
+        }
+
+        // Gold lots
+        if (biz.type === 'gold_agent' || biz.type === 'gold_owner') {
+          const lots = await storage.getGoldLotsByBusiness(biz.id);
+          for (const lot of lots) {
+            allStock.push({
+              id: lot.id,
+              stockType: 'gold',
+              name: `Gold Lot - ${lot.stream}`,
+              businessId: biz.id,
+              businessName: biz.name,
+              status: lot.status,
+              location: null,
+              purchasePrice: lot.purchaseCost ? parseFloat(lot.purchaseCost) : 0,
+              totalCost: lot.fundingAmount ? parseFloat(lot.fundingAmount) : 0,
+              salePrice: lot.saleValue ? parseFloat(lot.saleValue) : null,
+              serialNumber: null,
+              chassisNumber: null,
+              quantity: lot.gramsReceived ? parseFloat(lot.gramsReceived) : 0,
+              unit: 'grams',
+              createdAt: lot.createdAt,
+              ageInDays: Math.floor((Date.now() - new Date(lot.createdAt).getTime()) / (1000 * 60 * 60 * 24)),
+            });
+          }
+        }
+
+        // Spare parts / inventory
+        if (biz.type === 'spare_parts') {
+          const items = await storage.getInventoryItemsByBusiness(biz.id);
+          for (const item of items) {
+            allStock.push({
+              id: item.id,
+              stockType: 'inventory',
+              name: item.name + (item.sku ? ` [${item.sku}]` : ''),
+              businessId: biz.id,
+              businessName: biz.name,
+              status: item.quantity <= 0 ? 'out_of_stock' : item.quantity <= (item.reorderLevel || 5) ? 'low_stock' : 'in_stock',
+              location: item.location,
+              purchasePrice: item.unitCost ? parseFloat(item.unitCost) : 0,
+              totalCost: item.unitCost ? parseFloat(item.unitCost) * item.quantity : 0,
+              salePrice: item.unitPrice ? parseFloat(item.unitPrice) : null,
+              serialNumber: item.sku,
+              chassisNumber: null,
+              quantity: item.quantity,
+              unit: 'units',
+              reorderLevel: item.reorderLevel,
+              createdAt: item.createdAt,
+              ageInDays: Math.floor((Date.now() - new Date(item.createdAt).getTime()) / (1000 * 60 * 60 * 24)),
+            });
+          }
+        }
+
+        // Fuel summaries (weekly)
+        if (biz.type === 'fuel') {
+          const summaries = await storage.getFuelSummariesByBusiness(biz.id);
+          for (const s of summaries) {
+            allStock.push({
+              id: s.id,
+              stockType: 'fuel',
+              name: `Fuel Week ${new Date(s.weekStartDate).toLocaleDateString()} - ${new Date(s.weekEndDate).toLocaleDateString()}`,
+              businessId: biz.id,
+              businessName: biz.name,
+              status: 'summary',
+              location: null,
+              purchasePrice: s.estimatedExpenses ? parseFloat(s.estimatedExpenses) : 0,
+              totalCost: s.estimatedExpenses ? parseFloat(s.estimatedExpenses) : 0,
+              salePrice: s.totalSales ? parseFloat(s.totalSales) : 0,
+              serialNumber: null,
+              chassisNumber: null,
+              quantity: 1,
+              unit: 'week',
+              createdAt: s.createdAt,
+              ageInDays: Math.floor((Date.now() - new Date(s.weekStartDate).getTime()) / (1000 * 60 * 60 * 24)),
+            });
+          }
+        }
+      }
+
+      // Sort by age (oldest first)
+      allStock.sort((a, b) => b.ageInDays - a.ageInDays);
+
+      res.json(allStock);
+    } catch (error) {
+      console.error("Stock fetch error:", error);
+      res.status(500).json({ error: "Failed to fetch stock" });
+    }
+  });
+
+  // Get single stock item detail
+  app.get("/api/stock/:type/:id", async (req, res) => {
+    try {
+      const { type, id } = req.params;
+      let item: any = null;
+      let costHistory: any[] = [];
+      let movements: any[] = [];
+      let leases: any[] = [];
+
+      if (type === 'machinery') {
+        item = await storage.getMachineryAsset(id);
+        if (item) {
+          costHistory = await storage.getCostLinesByAsset(id);
+          const contracts = await storage.getLeaseContractsByAsset(id);
+          for (const contract of contracts) {
+            const payments = await storage.getLeasePaymentsByContract(contract.id);
+            leases.push({ ...contract, payments });
+          }
+        }
+      } else if (type === 'gold') {
+        item = await storage.getGoldLot(id);
+      } else if (type === 'inventory') {
+        item = await storage.getInventoryItem(id);
+        // Get movements for this item
+        const allMovements = await storage.getInventoryMovementsByItem(id);
+        movements = allMovements;
+      } else if (type === 'fuel') {
+        item = await storage.getFuelSummary(id);
+      }
+
+      if (!item) {
+        return res.status(404).json({ error: "Stock item not found" });
+      }
+
+      // Get business name
+      const business = item.businessId ? await storage.getBusiness(item.businessId) : null;
+
+      res.json({
+        item,
+        businessName: business?.name || null,
+        costHistory,
+        movements,
+        leases,
+      });
+    } catch (error) {
+      console.error("Stock detail error:", error);
+      res.status(500).json({ error: "Failed to fetch stock detail" });
+    }
+  });
+
   return httpServer;
 }

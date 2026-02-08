@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Loader2, AlertTriangle, Clock, ChevronRight, Briefcase, Plus,
-         Users, Truck, Building2, Wallet, UserCog, FileText, X } from 'lucide-react';
+         Users, Truck, Building2, Wallet, UserCog, FileText, X, Package } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { BusinessTile } from '@/components/dashboard/BusinessTile';
@@ -107,6 +107,7 @@ export default function Dashboard() {
     { label: 'New Entry', icon: Plus, href: '/new-entry', color: 'text-primary' },
     { label: 'Customers', icon: Users, href: '/customers', color: 'text-blue-500' },
     { label: 'Suppliers', icon: Truck, href: '/suppliers', color: 'text-orange-500' },
+    { label: 'Stock', icon: Package, href: '/stock', color: 'text-indigo-500' },
     { label: 'Banks', icon: Building2, href: '/banks', color: 'text-green-600' },
     { label: 'Users', icon: UserCog, href: '/admin/users', color: 'text-purple-500' },
   ];
