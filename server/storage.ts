@@ -758,16 +758,20 @@ export class DatabaseStorage implements IStorage {
     if (unreadAlertCount <= 0) healthScore += 15;
     else if (unreadAlertCount <= 3) healthScore += 7;
 
-    // === RECENT TRANSACTIONS ===
+    // === RECENT TRANSACTIONS (enriched with business & category names) ===
+    const businessMap = new Map(allBusinesses.map(b => [b.id, b.name]));
     const recentTransactions = userTransactions.slice(0, 5).map(t => ({
       id: t.id,
       direction: t.direction,
-      amount: parseFloat(t.amount),
+      amount: t.amount,
       currency: t.currency,
       counterparty: t.counterparty,
       notes: t.notes,
       date: t.date,
+      createdAt: t.createdAt,
       businessId: t.businessId,
+      businessName: businessMap.get(t.businessId) || '',
+      categoryName: t.categoryId ? categoryMap.get(t.categoryId) || '' : '',
     }));
 
     return {
